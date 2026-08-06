@@ -8,12 +8,12 @@ import type { LoginBody, RegisterBody } from './auth.validation.js';
 export const register = catchAsync(async (req: Request, res: Response) => {
 	logger.info('Register user');
 	const body = req.body as RegisterBody;
-	const user = await authService.registerUser(body);
+	const result = await authService.registerUser(body);
 	sendSuccess({
 		res,
 		statusCode: 201,
 		message: 'Account created successfully',
-		data: { user },
+		data: result,
 	});
 });
 

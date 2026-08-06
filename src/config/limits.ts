@@ -1,0 +1,26 @@
+export const limits = {
+	maxMainCategoriesPerKind: 25,
+	maxSubcategoriesPerParent: 20,
+	budgetWarningPercent: 80,
+	budgetOverPercent: 100,
+	maxActiveSavingsGoals: 10,
+	fxCronMaxAttempts: 3,
+	systemBaseCurrency: 'USD',
+	importMaxRows: 100,
+	importDescriptionMaxLength: 500,
+	exportMaxRangeDays: 730,
+	exportFinancialYearStartMonth: 4,
+	exportFinancialYearStartDay: 1,
+	defaultTimezone: 'UTC',
+	reviewMinTransactions: 5,
+	reviewMinExpenseCount: 3,
+	reviewComparisonMonths: 2,
+	reviewUiRecentCount: 3,
+	insightsMaxInputChars: 12_000,
+	listDefaultPageSize: 20,
+	listMaxPageSize: 100,
+	suggestDescriptionsLimit: 3,
+	fxEnabled: false,
+} as const;
+
+export type Limits = typeof limits;

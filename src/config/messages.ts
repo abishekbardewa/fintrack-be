@@ -36,4 +36,8 @@ export const messages = {
 	SAVINGS_CONTRIBUTION_NOT_FOUND: 'Contribution not found',
 	SAVINGS_CONTRIBUTION_CREATED: 'Contribution added',
 	SAVINGS_CONTRIBUTION_DELETED: 'Contribution deleted',
+	BUDGET_NOT_FOUND: 'Budget not found',
+	BUDGET_CATEGORY_INVALID: 'Budget category is invalid',
+	BUDGET_UPSERTED: 'Budget saved',
+	BUDGET_DELETED: 'Budget deleted',
 } as const;

@@ -17,6 +17,16 @@ export const BudgetPeriodType = {
 	Week: 'week',
 } as const;
 
+export type BudgetPeriodTypeValue = (typeof BudgetPeriodType)[keyof typeof BudgetPeriodType];
+
+export const BudgetProgressStatus = {
+	Ok: 'ok',
+	Warning: 'warning',
+	Over: 'over',
+} as const;
+
+export type BudgetProgressStatusValue = (typeof BudgetProgressStatus)[keyof typeof BudgetProgressStatus];
+
 export const SavingsGoalStatus = {
 	Active: 'active',
 	Completed: 'completed',

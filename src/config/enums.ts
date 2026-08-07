@@ -17,6 +17,22 @@ export const BudgetPeriodType = {
 	Week: 'week',
 } as const;
 
+export const SavingsGoalStatus = {
+	Active: 'active',
+	Completed: 'completed',
+	Cancelled: 'cancelled',
+} as const;
+
+export type SavingsGoalStatusValue = (typeof SavingsGoalStatus)[keyof typeof SavingsGoalStatus];
+
+export const SavingsContributionSource = {
+	Manual: 'manual',
+	IncomeTransaction: 'income_transaction',
+} as const;
+
+export type SavingsContributionSourceValue =
+	(typeof SavingsContributionSource)[keyof typeof SavingsContributionSource];
+
 export const ExportFormat = {
 	Csv: 'csv',
 	Xlsx: 'xlsx',

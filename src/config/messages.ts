@@ -27,4 +27,13 @@ export const messages = {
 	TRANSACTION_CREATED: 'Transaction created',
 	TRANSACTION_UPDATED: 'Transaction updated',
 	TRANSACTION_DELETED: 'Transaction deleted',
+	SAVINGS_GOAL_NOT_FOUND: 'Savings goal not found',
+	SAVINGS_GOAL_ACTIVE_CAP: 'Maximum number of active savings goals reached',
+	SAVINGS_GOAL_CANCELLED: 'Cannot contribute to a cancelled savings goal',
+	SAVINGS_GOAL_CREATED: 'Savings goal created',
+	SAVINGS_GOAL_UPDATED: 'Savings goal updated',
+	SAVINGS_GOAL_DELETED: 'Savings goal deleted',
+	SAVINGS_CONTRIBUTION_NOT_FOUND: 'Contribution not found',
+	SAVINGS_CONTRIBUTION_CREATED: 'Contribution added',
+	SAVINGS_CONTRIBUTION_DELETED: 'Contribution deleted',
 } as const;

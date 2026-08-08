@@ -230,6 +230,7 @@ export async function getTrends(userId: string, query: GetTrendsQuery) {
 			income: summary.income,
 			expense: summary.expense,
 			net: summary.net,
+			savingsRate: summary.income > 0 ? round2((summary.net / summary.income) * 100) : null,
 			vsPrevious: {
 				incomePct: pctChange(summary.income, prevTotals.income),
 				expensePct: pctChange(summary.expense, prevTotals.expense),

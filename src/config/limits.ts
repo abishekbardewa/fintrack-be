@@ -20,6 +20,9 @@ export const limits = {
 	listDefaultPageSize: 20,
 	listMaxPageSize: 100,
 	suggestDescriptionsLimit: 3,
+	dashboardRecentTransactions: 8,
+	dashboardCategoryTopN: 6,
+	trendsMaxCategoryIds: 2,
 } as const;
 
 export type Limits = typeof limits;

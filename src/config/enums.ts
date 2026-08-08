@@ -48,6 +48,16 @@ export const ExportFormat = {
 	Xlsx: 'xlsx',
 } as const;
 
+export type ExportFormatValue = (typeof ExportFormat)[keyof typeof ExportFormat];
+
+export const ExportRangePreset = {
+	ThisMonth: 'this_month',
+	LastMonth: 'last_month',
+	Last3Months: 'last_3_months',
+} as const;
+
+export type ExportRangePresetValue = (typeof ExportRangePreset)[keyof typeof ExportRangePreset];
+
 export const MonthlyReviewStatus = {
 	Available: 'available',
 	Generated: 'generated',

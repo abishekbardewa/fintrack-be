@@ -27,3 +27,15 @@ export const createAccountLimiter = rateLimit({
 		message: 'Too many accounts created from this IP, please try again after an hour',
 	},
 });
+
+export const importTransactionsLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000,
+	max: 20,
+	standardHeaders: true,
+	legacyHeaders: false,
+	message: {
+		success: false,
+		statusCode: 429,
+		message: 'Too many import requests, please try again later',
+	},
+});

@@ -9,8 +9,6 @@ export const limits = {
 	importMaxRows: 100,
 	importDescriptionMaxLength: 500,
 	exportMaxRangeDays: 730,
-	exportFinancialYearStartMonth: 4,
-	exportFinancialYearStartDay: 1,
 	defaultTimezone: 'UTC',
 	reviewMinTransactions: 5,
 	reviewMinExpenseCount: 3,

@@ -3,6 +3,7 @@ node_modules/
 dist/
 build/
 coverage/
+openapi.json
 
 # env & secrets
 .env

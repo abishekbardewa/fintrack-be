@@ -37,17 +37,21 @@ function round2(n: number): number {
 	return Math.round(n * 100) / 100;
 }
 
-export function toPublicSavingsGoal(
+export async function toPublicSavingsGoal(
 	goal: Pick<
 		SavingsGoalDocument,
 		'name' | 'targetAmount' | 'currency' | 'currentAmount' | 'targetDate' | 'status' | 'createdAt' | 'updatedAt'
 	> & { _id: Types.ObjectId },
 	userCurrency: string,
-): PublicSavingsGoal {
+): Promise<PublicSavingsGoal> {
 	const target = goal.targetAmount;
 	const current = goal.currentAmount;
 	const percent = target > 0 ? round2(Math.min(100, (current / target) * 100)) : 0;
 	const remaining = round2(Math.max(0, target - current));
+	const [targetAmountPreferred, currentAmountPreferred] = await Promise.all([
+		toAmountPreferred(target, goal.currency, userCurrency),
+		toAmountPreferred(current, goal.currency, userCurrency),
+	]);
 
 	return {
 		id: goal._id.toString(),
@@ -55,8 +59,8 @@ export function toPublicSavingsGoal(
 		targetAmount: target,
 		currency: goal.currency,
 		currentAmount: current,
-		targetAmountPreferred: toAmountPreferred(target, goal.currency, userCurrency),
-		currentAmountPreferred: toAmountPreferred(current, goal.currency, userCurrency),
+		targetAmountPreferred,
+		currentAmountPreferred,
 		percent,
 		remaining,
 		targetDate: goal.targetDate ?? null,
@@ -66,19 +70,19 @@ export function toPublicSavingsGoal(
 	};
 }
 
-export function toPublicContribution(
+export async function toPublicContribution(
 	row: Pick<
 		SavingsGoalContributionDocument,
 		'goalId' | 'amount' | 'currency' | 'date' | 'note' | 'source' | 'transactionId' | 'createdAt' | 'updatedAt'
 	> & { _id: Types.ObjectId },
 	userCurrency: string,
-): PublicContribution {
+): Promise<PublicContribution> {
 	return {
 		id: row._id.toString(),
 		goalId: row.goalId.toString(),
 		amount: row.amount,
 		currency: row.currency,
-		amountPreferred: toAmountPreferred(row.amount, row.currency, userCurrency),
+		amountPreferred: await toAmountPreferred(row.amount, row.currency, userCurrency, row.date),
 		date: row.date,
 		note: row.note ?? null,
 		source: row.source,

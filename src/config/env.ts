@@ -49,6 +49,8 @@ const envSchema = z.object({
 	JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
 	JWT_EXPIRES_IN: z.string().default('7d'),
 	BODY_SIZE_LIMIT: z.string().default('100kb'),
+	FX_ENABLED: z.enum(['true', 'false']).optional(),
+	FX_CRON_HOUR_UTC: z.coerce.number().int().min(0).max(23).default(1),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -59,6 +61,11 @@ if (!parsed.success) {
 }
 
 const env = parsed.data;
+
+const fxEnabled =
+	env.FX_ENABLED !== undefined
+		? env.FX_ENABLED === 'true'
+		: env.NODE_ENV !== 'development' && env.NODE_ENV !== 'test';
 
 export const config = {
 	nodeEnv: env.NODE_ENV,
@@ -76,6 +83,10 @@ export const config = {
 	},
 	db: {
 		uri: env.MONGO_DB_STRING,
+	},
+	fx: {
+		enabled: fxEnabled,
+		cronHourUtc: env.FX_CRON_HOUR_UTC,
 	},
 } as const;
 

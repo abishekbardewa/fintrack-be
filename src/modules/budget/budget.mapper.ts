@@ -41,7 +41,7 @@ export function computeBudgetProgress(limitAmount: number, spent: number) {
 	return { percent, remaining, status };
 }
 
-export function toPublicBudget(
+export async function toPublicBudget(
 	budget: Pick<
 		BudgetDocument,
 		| 'periodType'
@@ -58,8 +58,12 @@ export function toPublicBudget(
 	> & { _id: Types.ObjectId },
 	spent: number,
 	userCurrency: string,
-): PublicBudget {
+): Promise<PublicBudget> {
 	const progress = computeBudgetProgress(budget.limitAmount, spent);
+	const [limitAmountPreferred, spentPreferred] = await Promise.all([
+		toAmountPreferred(budget.limitAmount, budget.currency, userCurrency),
+		toAmountPreferred(spent, budget.currency, userCurrency),
+	]);
 	return {
 		id: budget._id.toString(),
 		periodType: budget.periodType,
@@ -71,9 +75,9 @@ export function toPublicBudget(
 		effectiveTo: budget.effectiveTo,
 		limitAmount: budget.limitAmount,
 		currency: budget.currency,
-		limitAmountPreferred: toAmountPreferred(budget.limitAmount, budget.currency, userCurrency),
+		limitAmountPreferred,
 		spent: round2(spent),
-		spentPreferred: toAmountPreferred(spent, budget.currency, userCurrency),
+		spentPreferred,
 		remaining: progress.remaining,
 		percent: progress.percent,
 		status: progress.status,

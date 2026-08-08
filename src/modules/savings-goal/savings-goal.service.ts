@@ -53,7 +53,7 @@ async function recomputeGoalProgress(goal: SavingsGoalDocument): Promise<void> {
 	const contributions = await SavingsGoalContributionModel.find({ goalId: goal._id }).lean();
 	let total = 0;
 	for (const row of contributions) {
-		total += convertAmount(row.amount, row.currency, goal.currency);
+		total += await convertAmount(row.amount, row.currency, goal.currency, row.date);
 	}
 	goal.currentAmount = Math.round(total * 100) / 100;
 	resolveStatus(goal);
@@ -94,7 +94,7 @@ export async function listSavingsGoals(userId: string, query: ListSavingsGoalsQu
 	}
 
 	const goals = await SavingsGoalModel.find(filter).sort({ createdAt: -1 });
-	return goals.map((goal) => toPublicSavingsGoal(goal, userCurrency));
+	return Promise.all(goals.map((goal) => toPublicSavingsGoal(goal, userCurrency)));
 }
 
 export async function getSavingsGoal(userId: string, goalId: string) {
@@ -162,9 +162,14 @@ export async function addContribution(userId: string, goalId: string, input: Cre
 
 	await recomputeGoalProgress(goal);
 
+	const [publicContribution, publicGoal] = await Promise.all([
+		toPublicContribution(contribution, userCurrency),
+		toPublicSavingsGoal(goal, userCurrency),
+	]);
+
 	return {
-		contribution: toPublicContribution(contribution, userCurrency),
-		goal: toPublicSavingsGoal(goal, userCurrency),
+		contribution: publicContribution,
+		goal: publicGoal,
 	};
 }
 
@@ -172,7 +177,7 @@ export async function listContributions(userId: string, goalId: string) {
 	await findOwnedGoal(userId, goalId);
 	const userCurrency = await getUserCurrency(userId);
 	const rows = await SavingsGoalContributionModel.find({ goalId, userId }).sort({ date: -1, createdAt: -1 });
-	return rows.map((row) => toPublicContribution(row, userCurrency));
+	return Promise.all(rows.map((row) => toPublicContribution(row, userCurrency)));
 }
 
 export async function deleteContribution(userId: string, goalId: string, contributionId: string) {

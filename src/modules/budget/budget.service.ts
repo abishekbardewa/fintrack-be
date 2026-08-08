@@ -13,6 +13,7 @@ import type { ListBudgetsQuery, UpsertBudgetBody } from './budget.validation.js'
 type ExpenseRow = {
 	amount: number;
 	currency: string;
+	date: Date;
 	categoryId: { toString(): string };
 	subcategoryId?: { toString(): string } | null;
 };
@@ -91,11 +92,11 @@ async function loadCategoryMeta(
 	return map;
 }
 
-function spentForBudget(
+async function spentForBudget(
 	budget: Pick<BudgetDocument, 'categoryId' | 'currency'>,
 	expenses: ExpenseRow[],
 	categoryMeta: Map<string, CategoryMeta>,
-): number {
+): Promise<number> {
 	const categoryId = budget.categoryId ? budget.categoryId.toString() : null;
 	let filtered = expenses;
 
@@ -113,7 +114,7 @@ function spentForBudget(
 
 	let total = 0;
 	for (const txn of filtered) {
-		total += convertAmount(txn.amount, txn.currency, budget.currency);
+		total += await convertAmount(txn.amount, txn.currency, budget.currency, txn.date);
 	}
 	return Math.round(total * 100) / 100;
 }
@@ -124,7 +125,7 @@ async function loadExpenses(userId: string, from: Date, to: Date): Promise<Expen
 		type: TransactionType.Expense,
 		date: { $gte: from, $lte: to },
 	})
-		.select('amount currency categoryId subcategoryId')
+		.select('amount currency date categoryId subcategoryId')
 		.lean();
 }
 
@@ -187,7 +188,7 @@ export async function upsertBudget(userId: string, input: UpsertBudgetBody) {
 
 	const expenses = await loadExpenses(userId, budget.effectiveFrom, budget.effectiveTo);
 	const categoryMeta = await loadCategoryMeta(userId, [categoryId]);
-	const spent = spentForBudget(budget, expenses, categoryMeta);
+	const spent = await spentForBudget(budget, expenses, categoryMeta);
 	return toPublicBudget(budget, spent, userCurrency);
 }
 
@@ -223,8 +224,10 @@ export async function listBudgets(userId: string, query: ListBudgetsQuery) {
 		budgets.map((b) => (b.categoryId ? b.categoryId.toString() : null)),
 	);
 
-	return budgets.map((budget) =>
-		toPublicBudget(budget, spentForBudget(budget, expenses, categoryMeta), userCurrency),
+	return Promise.all(
+		budgets.map(async (budget) =>
+			toPublicBudget(budget, await spentForBudget(budget, expenses, categoryMeta), userCurrency),
+		),
 	);
 }
 

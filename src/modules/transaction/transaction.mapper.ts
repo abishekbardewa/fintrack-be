@@ -16,19 +16,19 @@ export type PublicTransaction = {
 	updatedAt?: Date;
 };
 
-export function toPublicTransaction(
+export async function toPublicTransaction(
 	txn: Pick<
 		TransactionDocument,
 		'type' | 'amount' | 'currency' | 'categoryId' | 'subcategoryId' | 'description' | 'date' | 'createdAt' | 'updatedAt'
 	> & { _id: Types.ObjectId },
 	userCurrency: string,
-): PublicTransaction {
+): Promise<PublicTransaction> {
 	return {
 		id: txn._id.toString(),
 		type: txn.type,
 		amount: txn.amount,
 		currency: txn.currency,
-		amountPreferred: toAmountPreferred(txn.amount, txn.currency, userCurrency),
+		amountPreferred: await toAmountPreferred(txn.amount, txn.currency, userCurrency, txn.date),
 		categoryId: txn.categoryId.toString(),
 		subcategoryId: txn.subcategoryId ? txn.subcategoryId.toString() : null,
 		description: txn.description ?? '',

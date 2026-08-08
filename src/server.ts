@@ -2,9 +2,11 @@ import { createServer } from 'node:http';
 import app from './app.js';
 import { config, logger } from './config/index.js';
 import { connectDatabase, disconnectDatabase } from './database/connection.js';
+import { startFxCron } from './jobs/fxCron.js';
 
 async function bootstrap(): Promise<void> {
 	await connectDatabase();
+	startFxCron();
 
 	const server = createServer(app);
 
@@ -12,6 +14,7 @@ async function bootstrap(): Promise<void> {
 		logger.info(`FinTrack API listening on port ${config.port}`, {
 			env: config.nodeEnv,
 			apiPrefix: config.apiPrefix,
+			fxEnabled: config.fx.enabled,
 		});
 	});
 

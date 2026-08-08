@@ -114,7 +114,7 @@ export async function listTransactions(userId: string, query: ListTransactionsQu
 	]);
 
 	return {
-		items: items.map((txn) => toPublicTransaction(txn, userCurrency)),
+		items: await Promise.all(items.map((txn) => toPublicTransaction(txn, userCurrency))),
 		page,
 		limit,
 		total,

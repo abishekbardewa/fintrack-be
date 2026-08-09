@@ -20,7 +20,7 @@ logs/
 .vscode/
 
 # local-only (never push)
-docs/
+/docs/
 src-legacy/
 .cursor/
 scripts/

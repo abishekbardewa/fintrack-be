@@ -43,4 +43,11 @@ export const messages = {
 	BUDGET_CATEGORY_INVALID: 'Budget category is invalid',
 	BUDGET_UPSERTED: 'Budget saved',
 	BUDGET_DELETED: 'Budget deleted',
+	ADMIN_REQUIRED: 'Admin access required',
+	EXCHANGE_RATE_NOT_FOUND: 'Exchange rate not found',
+	EXCHANGE_RATE_CREATED: 'Exchange rate created',
+	EXCHANGE_RATE_UPDATED: 'Exchange rate updated',
+	EXCHANGE_RATE_DELETED: 'Exchange rate deleted',
+	EXCHANGE_RATE_SYNC_OK: 'Exchange rate sync succeeded',
+	EXCHANGE_RATE_SYNC_FAILED: 'Exchange rate sync failed',
 } as const;

@@ -64,3 +64,34 @@ export const MonthlyReviewStatus = {
 	Skipped: 'skipped',
 	InsufficientData: 'insufficient_data',
 } as const;
+
+export const UserRole = {
+	User: 'user',
+	Admin: 'admin',
+} as const;
+
+export type UserRoleValue = (typeof UserRole)[keyof typeof UserRole];
+
+export const ExchangeRateStatus = {
+	Ok: 'ok',
+	Error: 'error',
+	Manual: 'manual',
+} as const;
+
+export type ExchangeRateStatusValue = (typeof ExchangeRateStatus)[keyof typeof ExchangeRateStatus];
+
+export const ExchangeRateSource = {
+	Frankfurter: 'frankfurter',
+	Manual: 'manual',
+	AdminRetry: 'admin_retry',
+} as const;
+
+export type ExchangeRateSourceValue = (typeof ExchangeRateSource)[keyof typeof ExchangeRateSource];
+
+export const FxSyncLogType = {
+	DailyCron: 'daily_cron',
+	RetryDate: 'retry_date',
+	Manual: 'manual',
+} as const;
+
+export type FxSyncLogTypeValue = (typeof FxSyncLogType)[keyof typeof FxSyncLogType];

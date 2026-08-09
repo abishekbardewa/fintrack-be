@@ -1,3 +1,4 @@
+import { UserRole } from '../../config/enums.js';
 import { messages } from '../../config/messages.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import { signAccessToken } from '../../shared/utils/jwt.js';
@@ -28,6 +29,7 @@ export async function registerUser(input: RegisterBody) {
 		name: input.name,
 		email: input.email,
 		password: passwordHash,
+		role: UserRole.User,
 		currency: input.currency,
 		timezone: input.timezone || 'UTC',
 	});
@@ -43,6 +45,7 @@ export async function registerUser(input: RegisterBody) {
 		userId: user._id.toString(),
 		email: user.email,
 		name: user.name,
+		role: user.role ?? UserRole.User,
 	});
 
 	return {
@@ -66,6 +69,7 @@ export async function loginUser(input: LoginBody) {
 		userId: user._id.toString(),
 		email: user.email,
 		name: user.name,
+		role: user.role ?? UserRole.User,
 	});
 
 	return {

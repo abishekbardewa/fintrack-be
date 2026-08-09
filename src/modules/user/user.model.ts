@@ -1,4 +1,5 @@
 import { Schema, model, type HydratedDocument, type InferSchemaType } from 'mongoose';
+import { UserRole } from '../../config/enums.js';
 import { limits } from '../../config/limits.js';
 
 const userSchema = new Schema(
@@ -13,6 +14,13 @@ const userSchema = new Schema(
 			index: true,
 		},
 		password: { type: String, required: true, select: false },
+		role: {
+			type: String,
+			required: true,
+			enum: Object.values(UserRole),
+			default: UserRole.User,
+			index: true,
+		},
 		currency: {
 			type: String,
 			required: true,

@@ -109,7 +109,7 @@ export async function listTransactions(userId: string, query: ListTransactionsQu
 	const skip = (page - 1) * limit;
 
 	const [items, total] = await Promise.all([
-		TransactionModel.find(filter).sort({ date: -1, createdAt: -1 }).skip(skip).limit(limit),
+		TransactionModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
 		TransactionModel.countDocuments(filter),
 	]);
 

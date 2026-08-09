@@ -132,6 +132,8 @@ export const createSavingsGoalBodySchema = z
 		targetAmount: z.number().positive(),
 		currency: z.string().length(3).optional(),
 		targetDate: isoDateTimeSchema.nullable().optional(),
+		initialAmount: z.number().positive().optional(),
+		initialDate: isoDateTimeSchema.optional(),
 	})
 	.openapi('CreateSavingsGoalBody');
 

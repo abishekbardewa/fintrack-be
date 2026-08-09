@@ -50,6 +50,21 @@ type CategorySlice = {
 	percent: number;
 };
 
+type SubcategorySlice = {
+	subcategoryId: string | null;
+	name: string | null;
+	amount: number;
+	percent: number;
+};
+
+type CategoryBreakdownSlice = {
+	categoryId: string;
+	name: string;
+	amount: number;
+	percent: number;
+	subcategories: SubcategorySlice[];
+};
+
 async function loadUser(userId: string) {
 	const user = await UserModel.findById(userId).select('currency timezone');
 	if (!user) {
@@ -143,6 +158,77 @@ async function expenseByCategory(
 	}
 
 	return slices;
+}
+
+async function expenseByCategoryBreakdown(
+	expenses: TxnRow[],
+	categories: Map<string, CategoryRow>,
+	preferred: string,
+): Promise<CategoryBreakdownSlice[]> {
+	const parentBuckets = new Map<string, TxnRow[]>();
+	for (const txn of expenses) {
+		const id = txn.categoryId.toString();
+		const list = parentBuckets.get(id);
+		if (list) {
+			list.push(txn);
+		} else {
+			parentBuckets.set(id, [txn]);
+		}
+	}
+
+	const parents: CategoryBreakdownSlice[] = [];
+
+	for (const [categoryId, rows] of parentBuckets.entries()) {
+		const amount = await sumInPreferred(rows, preferred);
+		if (amount <= 0) {
+			continue;
+		}
+
+		const subBuckets = new Map<string | null, TxnRow[]>();
+		for (const txn of rows) {
+			const subId = txn.subcategoryId ? txn.subcategoryId.toString() : null;
+			const list = subBuckets.get(subId);
+			if (list) {
+				list.push(txn);
+			} else {
+				subBuckets.set(subId, [txn]);
+			}
+		}
+
+		const subcategories: SubcategorySlice[] = [];
+		for (const [subcategoryId, subRows] of subBuckets.entries()) {
+			const subAmount = await sumInPreferred(subRows, preferred);
+			if (subAmount <= 0) {
+				continue;
+			}
+			subcategories.push({
+				subcategoryId,
+				name: subcategoryId ? (categories.get(subcategoryId)?.name ?? 'Unknown') : null,
+				amount: subAmount,
+				percent: round2((subAmount / amount) * 100),
+			});
+		}
+		subcategories.sort((a, b) => b.amount - a.amount);
+
+		parents.push({
+			categoryId,
+			name: categories.get(categoryId)?.name ?? 'Unknown',
+			amount,
+			percent: 0,
+			subcategories,
+		});
+	}
+
+	const totalExpense = round2(parents.reduce((sum, row) => sum + row.amount, 0));
+	if (totalExpense <= 0) {
+		return [];
+	}
+
+	for (const parent of parents) {
+		parent.percent = round2((parent.amount / totalExpense) * 100);
+	}
+	parents.sort((a, b) => b.amount - a.amount);
+	return parents;
 }
 
 async function buildCashFlowMonth(
@@ -379,7 +465,7 @@ async function buildRecent(userId: string, preferred: string, categories: Map<st
 	const rows = await TransactionModel.find({ userId })
 		.sort({ date: -1 })
 		.limit(limits.dashboardRecentTransactions)
-		.select('type amount currency date categoryId description')
+		.select('type amount currency date categoryId subcategoryId description')
 		.lean();
 
 	const rateCache = new Map<string, Record<string, number>>();
@@ -388,11 +474,13 @@ async function buildRecent(userId: string, preferred: string, categories: Map<st
 		const amount = round2(
 			await convertAmountWithCachedRates(row.amount, row.currency, preferred, row.date, rateCache),
 		);
+		const subcategoryId = row.subcategoryId?.toString();
 		out.push({
 			id: row._id.toString(),
 			type: row.type,
 			description: row.description ?? '',
 			categoryName: categories.get(row.categoryId.toString())?.name ?? 'Unknown',
+			subcategoryName: subcategoryId ? (categories.get(subcategoryId)?.name ?? null) : null,
 			amount,
 			date: row.date.toISOString(),
 		});
@@ -495,45 +583,54 @@ export async function getDashboard(userId: string, query: GetDashboardQuery) {
 		totalsFor(compareBTxns, preferred),
 	]);
 
-	const [byCategory, compareAByCat, compareBByCat, cashFlow, budgets, goals, recentTransactions] =
-		await Promise.all([
-			expenseByCategory(
-				currentTxns.filter((t) => t.type === TransactionType.Expense),
-				categories,
-				preferred,
-				limits.dashboardCategoryTopN,
-			),
-			expenseByCategory(
-				compareATxns.filter((t) => t.type === TransactionType.Expense),
-				categories,
-				preferred,
-				limits.dashboardCategoryTopN,
-			),
-			expenseByCategory(
-				compareBTxns.filter((t) => t.type === TransactionType.Expense),
-				categories,
-				preferred,
-				limits.dashboardCategoryTopN,
-			),
-			query.period === dashboardPeriod.Month
-				? buildCashFlowMonth(
-						currentTxns,
-						windows.current.year,
-						windows.current.month,
-						timeZone,
-						preferred,
-					)
-				: buildCashFlowYear(
-						currentTxns,
-						windows.current.year,
-						windows.current.month,
-						timeZone,
-						preferred,
-					),
-			buildBudgets(userId, today.year, today.month, preferred, timeZone),
-			buildGoals(userId, preferred, timeZone),
-			buildRecent(userId, preferred, categories),
-		]);
+	const currentExpenses = currentTxns.filter((t) => t.type === TransactionType.Expense);
+	const previousExpenses = previousTxns.filter((t) => t.type === TransactionType.Expense);
+
+	const [
+		byCategory,
+		byCategoryBreakdown,
+		byCategoryBreakdownPrevious,
+		compareAByCat,
+		compareBByCat,
+		cashFlow,
+		budgets,
+		goals,
+		recentTransactions,
+	] = await Promise.all([
+		expenseByCategory(currentExpenses, categories, preferred, limits.dashboardCategoryTopN),
+		expenseByCategoryBreakdown(currentExpenses, categories, preferred),
+		expenseByCategoryBreakdown(previousExpenses, categories, preferred),
+		expenseByCategory(
+			compareATxns.filter((t) => t.type === TransactionType.Expense),
+			categories,
+			preferred,
+			limits.dashboardCategoryTopN,
+		),
+		expenseByCategory(
+			compareBTxns.filter((t) => t.type === TransactionType.Expense),
+			categories,
+			preferred,
+			limits.dashboardCategoryTopN,
+		),
+		query.period === dashboardPeriod.Month
+			? buildCashFlowMonth(
+					currentTxns,
+					windows.current.year,
+					windows.current.month,
+					timeZone,
+					preferred,
+				)
+			: buildCashFlowYear(
+					currentTxns,
+					windows.current.year,
+					windows.current.month,
+					timeZone,
+					preferred,
+				),
+		buildBudgets(userId, today.year, today.month, preferred, timeZone),
+		buildGoals(userId, preferred, timeZone),
+		buildRecent(userId, preferred, categories),
+	]);
 
 	return {
 		period: {
@@ -556,6 +653,8 @@ export async function getDashboard(userId: string, query: GetDashboardQuery) {
 		},
 		cashFlow,
 		byCategory,
+		byCategoryBreakdown,
+		byCategoryBreakdownPrevious,
 		categoryCompare: {
 			a: {
 				key: windows.compareA.key,

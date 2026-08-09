@@ -176,6 +176,21 @@ const categoryAmountSchema = z.object({
 	percent: z.number(),
 });
 
+const categoryBreakdownSchema = z.object({
+	categoryId: objectIdSchema,
+	name: z.string(),
+	amount: z.number(),
+	percent: z.number(),
+	subcategories: z.array(
+		z.object({
+			subcategoryId: objectIdSchema.nullable(),
+			name: z.string().nullable(),
+			amount: z.number(),
+			percent: z.number(),
+		}),
+	),
+});
+
 const vsPreviousSchema = z.object({
 	incomePct: z.number().nullable(),
 	expensePct: z.number().nullable(),
@@ -207,6 +222,8 @@ export const dashboardDataSchema = z
 			}),
 		),
 		byCategory: z.array(categoryAmountSchema),
+		byCategoryBreakdown: z.array(categoryBreakdownSchema),
+		byCategoryBreakdownPrevious: z.array(categoryBreakdownSchema),
 		categoryCompare: z.object({
 			a: z.object({
 				key: z.string(),
@@ -259,6 +276,7 @@ export const dashboardDataSchema = z
 				type: z.enum([TransactionType.Expense, TransactionType.Income]),
 				description: z.string(),
 				categoryName: z.string(),
+				subcategoryName: z.string().nullable(),
 				amount: z.number(),
 				date: isoDateTimeSchema,
 			}),

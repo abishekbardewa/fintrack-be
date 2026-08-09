@@ -10,6 +10,8 @@ export const createSavingsGoalBodySchema = z.object({
 	targetAmount: z.number().positive(),
 	currency: z.string().trim().toUpperCase().min(3).max(3).optional(),
 	targetDate: dateSchema.nullish(),
+	initialAmount: z.number().positive().optional(),
+	initialDate: dateSchema.optional(),
 });
 
 export const updateSavingsGoalBodySchema = z

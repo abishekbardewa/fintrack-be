@@ -83,6 +83,20 @@ export async function createSavingsGoal(userId: string, input: CreateSavingsGoal
 		status: SavingsGoalStatus.Active,
 	});
 
+	if (input.initialAmount !== undefined) {
+		await SavingsGoalContributionModel.create({
+			goalId: goal._id,
+			userId,
+			amount: input.initialAmount,
+			currency,
+			date: input.initialDate ?? new Date(),
+			note: null,
+			source: SavingsContributionSource.Manual,
+			transactionId: null,
+		});
+		await recomputeGoalProgress(goal);
+	}
+
 	return toPublicSavingsGoal(goal, userCurrency);
 }
 

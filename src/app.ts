@@ -3,7 +3,7 @@ import express from 'express';
 import mongoSanitize from 'express-mongo-sanitize';
 import helmet from 'helmet';
 import { apiLimiter, config, defaultLimiter } from './config/index.js';
-import { mountOpenApiDocs } from './docs/mount.js';
+import { mountOpenApiDocs } from './openapi/mount.js';
 import apiRouter from './modules/index.js';
 import { errorHandler, notFoundHandler } from './shared/middleware/errorHandler.js';
 

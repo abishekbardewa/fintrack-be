@@ -1,12 +1,5 @@
 import { Schema, model, type HydratedDocument, type InferSchemaType } from 'mongoose';
-
-const categorySchema = new Schema(
-	{
-		name: { type: String, required: true, trim: true },
-		createdAt: { type: Date, default: Date.now },
-	},
-	{ _id: false },
-);
+import { limits } from '../../config/limits.js';
 
 const userSchema = new Schema(
 	{
@@ -20,7 +13,18 @@ const userSchema = new Schema(
 			index: true,
 		},
 		password: { type: String, required: true, select: false },
-		categories: { type: [categorySchema], default: [] },
+		currency: {
+			type: String,
+			required: true,
+			uppercase: true,
+			trim: true,
+		},
+		timezone: {
+			type: String,
+			required: true,
+			trim: true,
+			default: limits.defaultTimezone,
+		},
 	},
 	{ timestamps: true },
 );

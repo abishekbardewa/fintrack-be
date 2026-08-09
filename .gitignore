@@ -3,6 +3,7 @@ node_modules/
 dist/
 build/
 coverage/
+openapi.json
 
 # env & secrets
 .env
@@ -16,14 +17,13 @@ logs/
 .DS_Store
 **/.DS_Store
 .idea/
-.vscode/*
-!.vscode/launch.json
-!.vscode/extensions.json
+.vscode/
 
 # local-only (never push)
 docs/
 src-legacy/
 .cursor/
+scripts/
 
 # misc leftovers
 prompt.json

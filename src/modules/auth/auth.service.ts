@@ -1,23 +1,23 @@
 import { messages } from '../../config/messages.js';
 import { AppError } from '../../shared/errors/AppError.js';
-import { PREDEFINED_CATEGORIES } from '../../shared/utils/constants.js';
 import { signAccessToken } from '../../shared/utils/jwt.js';
 import { comparePassword, hashPassword } from '../../shared/utils/password.js';
+import { seedDefaultCategories } from '../category/category.seed.js';
+import { CurrencyModel } from '../currency/currency.model.js';
+import { toPublicUser } from '../user/user.mapper.js';
 import { UserModel } from '../user/user.model.js';
 import type { LoginBody, RegisterBody } from './auth.validation.js';
 
-function toPublicUser(user: { _id: { toString(): string }; name: string; email: string; categories?: unknown; createdAt?: Date; updatedAt?: Date }) {
-	return {
-		id: user._id.toString(),
-		name: user.name,
-		email: user.email,
-		categories: user.categories ?? [],
-		createdAt: user.createdAt,
-		updatedAt: user.updatedAt,
-	};
+async function assertEnabledCurrency(code: string): Promise<void> {
+	const found = await CurrencyModel.findOne({ code, enabled: true }).lean();
+	if (!found) {
+		throw new AppError(messages.CURRENCY_INVALID, 422);
+	}
 }
 
 export async function registerUser(input: RegisterBody) {
+	await assertEnabledCurrency(input.currency);
+
 	const existing = await UserModel.findOne({ email: input.email }).lean();
 	if (existing) {
 		throw new AppError(messages.USER_ALREADY_EXISTS, 409);
@@ -28,10 +28,27 @@ export async function registerUser(input: RegisterBody) {
 		name: input.name,
 		email: input.email,
 		password: passwordHash,
-		categories: [...PREDEFINED_CATEGORIES],
+		currency: input.currency,
+		timezone: input.timezone || 'UTC',
 	});
 
-	return toPublicUser(user);
+	try {
+		await seedDefaultCategories(user._id);
+	} catch (err) {
+		await UserModel.deleteOne({ _id: user._id });
+		throw err;
+	}
+
+	const accessToken = signAccessToken({
+		userId: user._id.toString(),
+		email: user.email,
+		name: user.name,
+	});
+
+	return {
+		user: toPublicUser(user),
+		accessToken,
+	};
 }
 
 export async function loginUser(input: LoginBody) {

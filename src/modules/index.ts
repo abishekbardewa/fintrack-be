@@ -5,6 +5,7 @@ import categoryRouter from './category/category.routes.js';
 import currencyRouter from './currency/currency.routes.js';
 import dashboardRouter from './dashboard/dashboard.routes.js';
 import adminExchangeRateRouter from './exchange-rate/admin-exchange-rate.routes.js';
+import internalFxRouter from './exchange-rate/internal-fx.routes.js';
 import savingsGoalRouter from './savings-goal/savings-goal.routes.js';
 import transactionRouter from './transaction/transaction.routes.js';
 import trendsRouter from './trends/trends.routes.js';
@@ -21,6 +22,7 @@ apiRouter.use('/budgets', budgetRouter);
 apiRouter.use('/dashboard', dashboardRouter);
 apiRouter.use('/trends', trendsRouter);
 apiRouter.use('/admin/exchange-rates', adminExchangeRateRouter);
+apiRouter.use('/internal/fx', internalFxRouter);
 apiRouter.use('/', userRouter);
 
 export default apiRouter;

@@ -106,6 +106,27 @@ export const transactionListDataSchema = z
 	})
 	.openapi('TransactionListData');
 
+export const transactionMonthSummaryDataSchema = z
+	.object({
+		year: z.number().int(),
+		month: z.number().int().min(1).max(12),
+		currency: z.string().length(3),
+		monthTotals: z.object({
+			spent: z.number(),
+			income: z.number(),
+			count: z.number().int(),
+		}),
+		days: z.array(
+			z.object({
+				date: z.string().openapi({ example: '2026-08-12' }),
+				spent: z.number(),
+				income: z.number(),
+				count: z.number().int(),
+			}),
+		),
+	})
+	.openapi('TransactionMonthSummaryData');
+
 export const publicBudgetSchema = z
 	.object({
 		id: objectIdSchema,

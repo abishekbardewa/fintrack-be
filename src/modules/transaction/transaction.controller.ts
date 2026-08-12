@@ -11,6 +11,7 @@ import type {
 	ExportTransactionsQuery,
 	ImportTransactionsBody,
 	ListTransactionsQuery,
+	MonthSummaryQuery,
 	SuggestDescriptionsQuery,
 	UpdateTransactionBody,
 } from './transaction.validation.js';
@@ -26,6 +27,20 @@ export const listTransactions = catchAsync(async (req: Request, res: Response) =
 		statusCode: 200,
 		message: 'Success',
 		data: result,
+	});
+});
+
+export const getMonthSummary = catchAsync(async (req: Request, res: Response) => {
+	if (!req.user?.userId) {
+		throw new AppError(messages.TOKEN_INVALID, 401);
+	}
+	const query = req.query as unknown as MonthSummaryQuery;
+	const data = await transactionService.getMonthSummary(req.user.userId, query);
+	sendSuccess({
+		res,
+		statusCode: 200,
+		message: 'Success',
+		data,
 	});
 });
 

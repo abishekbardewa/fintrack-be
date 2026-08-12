@@ -1,6 +1,9 @@
+import { TransactionType } from '../../config/enums.js';
 import { limits } from '../../config/limits.js';
 import { messages } from '../../config/messages.js';
 import { AppError } from '../../shared/errors/AppError.js';
+import { sumInPreferred } from '../../shared/utils/aggregateFx.js';
+import { getZonedYmd, monthWindow, resolveTimeZone } from '../../shared/utils/dateWindows.js';
 import { CategoryModel } from '../category/category.model.js';
 import { CurrencyModel } from '../currency/currency.model.js';
 import { UserModel } from '../user/user.model.js';
@@ -9,9 +12,22 @@ import { TransactionModel } from './transaction.model.js';
 import type {
 	CreateTransactionBody,
 	ListTransactionsQuery,
+	MonthSummaryQuery,
 	SuggestDescriptionsQuery,
 	UpdateTransactionBody,
 } from './transaction.validation.js';
+
+type MonthSummaryTxn = {
+	type: string;
+	amount: number;
+	currency: string;
+	date: Date;
+};
+
+function formatZonedDateKey(date: Date, timeZone: string): string {
+	const ymd = getZonedYmd(date, timeZone);
+	return `${ymd.year}-${String(ymd.month).padStart(2, '0')}-${String(ymd.day).padStart(2, '0')}`;
+}
 
 async function getUserCurrency(userId: string): Promise<string> {
 	const user = await UserModel.findById(userId).select('currency');
@@ -225,4 +241,80 @@ export async function suggestDescriptions(userId: string, query: SuggestDescript
 	}
 
 	return descriptions;
+}
+
+export async function getMonthSummary(userId: string, query: MonthSummaryQuery) {
+	const user = await UserModel.findById(userId).select('currency timezone');
+	if (!user) {
+		throw new AppError(messages.USER_NOT_FOUND, 404);
+	}
+
+	const preferred = user.currency;
+	const timeZone = resolveTimeZone(user.timezone, limits.defaultTimezone);
+	const { year, month } = query;
+	const { from, to } = monthWindow(year, month, timeZone);
+
+	const txns = (await TransactionModel.find({
+		userId,
+		date: { $gte: from, $lte: to },
+	})
+		.select('type amount currency date')
+		.lean()) as MonthSummaryTxn[];
+
+	const byDay = new Map<string, MonthSummaryTxn[]>();
+	for (const txn of txns) {
+		const key = formatZonedDateKey(txn.date, timeZone);
+		const list = byDay.get(key);
+		if (list) {
+			list.push(txn);
+		} else {
+			byDay.set(key, [txn]);
+		}
+	}
+
+	const [spent, income] = await Promise.all([
+		sumInPreferred(
+			txns.filter((t) => t.type === TransactionType.Expense),
+			preferred,
+		),
+		sumInPreferred(
+			txns.filter((t) => t.type === TransactionType.Income),
+			preferred,
+		),
+	]);
+
+	const dayKeys = [...byDay.keys()].sort();
+	const days = await Promise.all(
+		dayKeys.map(async (date) => {
+			const rows = byDay.get(date) ?? [];
+			const [daySpent, dayIncome] = await Promise.all([
+				sumInPreferred(
+					rows.filter((t) => t.type === TransactionType.Expense),
+					preferred,
+				),
+				sumInPreferred(
+					rows.filter((t) => t.type === TransactionType.Income),
+					preferred,
+				),
+			]);
+			return {
+				date,
+				spent: daySpent,
+				income: dayIncome,
+				count: rows.length,
+			};
+		}),
+	);
+
+	return {
+		year,
+		month,
+		currency: preferred,
+		monthTotals: {
+			spent,
+			income,
+			count: txns.length,
+		},
+		days,
+	};
 }

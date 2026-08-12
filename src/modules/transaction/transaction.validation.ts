@@ -61,6 +61,11 @@ export const suggestDescriptionsQuerySchema = z.object({
 	type: z.enum([TransactionType.Expense, TransactionType.Income]).optional(),
 });
 
+export const monthSummaryQuerySchema = z.object({
+	year: z.coerce.number().int().min(2000).max(2100),
+	month: z.coerce.number().int().min(1).max(12),
+});
+
 export const transactionIdParamsSchema = z.object({
 	id: objectIdSchema,
 });
@@ -130,6 +135,7 @@ export type CreateTransactionBody = z.infer<typeof createTransactionBodySchema>;
 export type UpdateTransactionBody = z.infer<typeof updateTransactionBodySchema>;
 export type ListTransactionsQuery = z.infer<typeof listTransactionsQuerySchema>;
 export type SuggestDescriptionsQuery = z.infer<typeof suggestDescriptionsQuerySchema>;
+export type MonthSummaryQuery = z.infer<typeof monthSummaryQuerySchema>;
 export type ExportTransactionsQuery = z.infer<typeof exportTransactionsQuerySchema>;
 export type ImportTransactionsBody = z.infer<typeof importTransactionsBodySchema>;
 export type ImportTransactionRow = z.infer<typeof importTransactionRowSchema>;

@@ -6,6 +6,7 @@ import {
 	createTransaction,
 	deleteTransaction,
 	exportTransactions,
+	getMonthSummary,
 	getTransaction,
 	importTransactions,
 	listTransactions,
@@ -17,6 +18,7 @@ import {
 	exportTransactionsQuerySchema,
 	importTransactionsBodySchema,
 	listTransactionsQuerySchema,
+	monthSummaryQuerySchema,
 	suggestDescriptionsQuerySchema,
 	transactionIdParamsSchema,
 	updateTransactionBodySchema,
@@ -27,6 +29,11 @@ const transactionRouter = Router();
 transactionRouter.use(requireAuth);
 transactionRouter.get('/', validate({ query: listTransactionsQuerySchema }), listTransactions);
 transactionRouter.post('/', validate({ body: createTransactionBodySchema }), createTransaction);
+transactionRouter.get(
+	'/month-summary',
+	validate({ query: monthSummaryQuerySchema }),
+	getMonthSummary,
+);
 transactionRouter.get(
 	'/suggest-descriptions',
 	validate({ query: suggestDescriptionsQuerySchema }),

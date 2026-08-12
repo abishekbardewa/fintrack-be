@@ -107,6 +107,11 @@ export const suggestDescriptionsQuerySchema = z.object({
 	type: z.enum([TransactionType.Expense, TransactionType.Income]).optional(),
 });
 
+export const monthSummaryQuerySchema = z.object({
+	year: z.coerce.number().int().min(2000).max(2100).openapi({ example: 2026 }),
+	month: z.coerce.number().int().min(1).max(12).openapi({ example: 8 }),
+});
+
 export const upsertBudgetBodySchema = z
 	.object({
 		periodType: z.enum([BudgetPeriodType.Month, BudgetPeriodType.Week]),

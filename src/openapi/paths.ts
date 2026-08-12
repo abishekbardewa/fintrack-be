@@ -16,6 +16,7 @@ import {
 	publicUserSchema,
 	successResponseSchema,
 	transactionListDataSchema,
+	transactionMonthSummaryDataSchema,
 	dashboardDataSchema,
 	trendsDataSchema,
 } from './schemas.js';
@@ -281,6 +282,27 @@ export function registerPaths(registry: OpenAPIRegistry): void {
 						z.object({ transaction: publicTransactionSchema }),
 						'CreateTransactionResponse',
 					),
+				),
+			},
+			401: errorResponses[401],
+			422: errorResponses[422],
+		},
+	});
+
+	registry.registerPath({
+		method: 'get',
+		path: '/api/v1/transactions/month-summary',
+		tags: ['Transactions'],
+		summary: 'Month summary (totals + per-day activity by spend date)',
+		description:
+			'Aggregates the authenticated user’s transactions for a calendar month in their preferred timezone. Filters on spend `date` (not createdAt). Amounts are converted to the user’s preferred currency.',
+		security: bearerSecurity,
+		request: { query: req.monthSummaryQuerySchema },
+		responses: {
+			200: {
+				description: 'Month totals and non-empty day buckets',
+				content: jsonContent(
+					successResponseSchema(transactionMonthSummaryDataSchema, 'TransactionMonthSummaryResponse'),
 				),
 			},
 			401: errorResponses[401],

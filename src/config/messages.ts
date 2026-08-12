@@ -44,6 +44,8 @@ export const messages = {
 	BUDGET_UPSERTED: 'Budget saved',
 	BUDGET_DELETED: 'Budget deleted',
 	ADMIN_REQUIRED: 'Admin access required',
+	CRON_SECRET_MISSING: 'Cron secret is not configured',
+	CRON_SECRET_INVALID: 'Invalid cron secret',
 	EXCHANGE_RATE_NOT_FOUND: 'Exchange rate not found',
 	EXCHANGE_RATE_CREATED: 'Exchange rate created',
 	EXCHANGE_RATE_UPDATED: 'Exchange rate updated',

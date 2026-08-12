@@ -50,7 +50,8 @@ const envSchema = z.object({
 	JWT_EXPIRES_IN: z.string().default('7d'),
 	BODY_SIZE_LIMIT: z.string().default('100kb'),
 	FX_ENABLED: z.enum(['true', 'false']).optional(),
-	FX_CRON_HOUR_UTC: z.coerce.number().int().min(0).max(23).default(1),
+	FX_CRON_HOUR_UTC: z.coerce.number().int().min(0).max(23).default(16),
+	CRON_SECRET: z.string().min(16).optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -87,6 +88,9 @@ export const config = {
 	fx: {
 		enabled: fxEnabled,
 		cronHourUtc: env.FX_CRON_HOUR_UTC,
+	},
+	cron: {
+		secret: env.CRON_SECRET,
 	},
 } as const;
 

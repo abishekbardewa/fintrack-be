@@ -1,19 +1,22 @@
-import { ExchangeRateSource, ExchangeRateStatus, FxSyncLogType } from '../../config/enums.js';
+import {
+	ExchangeRateProcess,
+	ExchangeRateSource,
+	ExchangeRateStatus,
+	type ExchangeRateProcessValue,
+} from '../../config/enums.js';
 import { limits } from '../../config/limits.js';
 import { logger } from '../../config/logger.js';
 import { mockUsdRates } from '../../shared/utils/mockUsdRates.js';
 import { ExchangeRateModel } from './exchange-rate.model.js';
 import { fetchFrankfurterRates, type FrankfurterRates } from './frankfurter.client.js';
-import { FxSyncLogModel } from './fx-sync-log.model.js';
 
 const memoryCache = new Map<string, FrankfurterRates>();
 
 export type SyncExchangeRatesOptions = {
 	maxAttempts?: number;
 	retryDelayMs?: number | ((attempt: number) => number);
-	triggeredBy?: string;
-	logType?: (typeof FxSyncLogType)[keyof typeof FxSyncLogType];
-	source?: (typeof ExchangeRateSource)[keyof typeof ExchangeRateSource];
+	process: ExchangeRateProcessValue;
+	triggeredBy: string;
 };
 
 export function toRateDateKey(date: Date = new Date()): string {
@@ -44,31 +47,12 @@ function errorMessage(error: unknown): string {
 	return String(error);
 }
 
-async function writeSyncLog(input: {
-	type: (typeof FxSyncLogType)[keyof typeof FxSyncLogType];
-	date: string;
-	success: boolean;
-	error: string | null;
-	triggeredBy: string;
-	startedAt: Date;
-}): Promise<void> {
-	await FxSyncLogModel.create({
-		type: input.type,
-		date: input.date,
-		success: input.success,
-		error: input.error,
-		triggeredBy: input.triggeredBy,
-		startedAt: input.startedAt,
-		finishedAt: new Date(),
-	});
-}
-
 async function upsertRates(
 	dateKey: string,
 	rates: FrankfurterRates,
 	attemptCount: number,
-	source: (typeof ExchangeRateSource)[keyof typeof ExchangeRateSource],
-	updatedBy: string | null,
+	process: ExchangeRateProcessValue,
+	triggeredBy: string,
 ): Promise<FrankfurterRates> {
 	const normalized = { ...rates, [limits.systemBaseCurrency]: 1 };
 	const now = new Date();
@@ -80,11 +64,13 @@ async function upsertRates(
 				base: limits.systemBaseCurrency,
 				rates: normalized,
 				fetchedAt: now,
-				source,
+				source: ExchangeRateSource.Frankfurter,
 				status: ExchangeRateStatus.Ok,
+				process,
+				triggeredBy,
 				attemptCount,
 				lastError: null,
-				updatedBy,
+				updatedBy: triggeredBy,
 			},
 		},
 		{ upsert: true },
@@ -93,61 +79,89 @@ async function upsertRates(
 	return normalized;
 }
 
-async function markRateError(dateKey: string, attemptCount: number, error: unknown): Promise<void> {
+async function markRateError(
+	dateKey: string,
+	attemptCount: number,
+	error: unknown,
+	process: ExchangeRateProcessValue,
+	triggeredBy: string,
+): Promise<void> {
+	const now = new Date();
 	await ExchangeRateModel.updateOne(
 		{ date: dateKey },
 		{
 			$set: {
 				lastError: {
 					message: errorMessage(error),
-					at: new Date(),
+					at: now,
 				},
 				status: ExchangeRateStatus.Error,
+				source: ExchangeRateSource.Frankfurter,
+				process,
+				triggeredBy,
 				attemptCount,
-				updatedAt: new Date(),
+				updatedBy: triggeredBy,
+				updatedAt: now,
+			},
+			$setOnInsert: {
+				date: dateKey,
+				base: limits.systemBaseCurrency,
+				rates: { [limits.systemBaseCurrency]: 1 },
+				fetchedAt: now,
 			},
 		},
+		{ upsert: true },
 	);
 }
 
 async function fetchAndStore(
 	dateKey: string,
 	attemptCount: number,
-	source: (typeof ExchangeRateSource)[keyof typeof ExchangeRateSource],
-	updatedBy: string | null,
+	process: ExchangeRateProcessValue,
+	triggeredBy: string,
 ): Promise<FrankfurterRates> {
 	const fetched = await fetchFrankfurterRates(dateKey);
-	return upsertRates(dateKey, fetched.rates, attemptCount, source, updatedBy);
+	return upsertRates(dateKey, fetched.rates, attemptCount, process, triggeredBy);
 }
 
 export async function syncExchangeRatesForDate(
 	dateKey: string = toRateDateKey(),
-	options: SyncExchangeRatesOptions = {},
+	options: SyncExchangeRatesOptions,
 ): Promise<boolean> {
 	const maxAttempts = options.maxAttempts ?? limits.fxCronMaxAttempts;
-	const triggeredBy = options.triggeredBy ?? 'cron';
-	const logType = options.logType ?? FxSyncLogType.DailyCron;
-	const source = options.source ?? ExchangeRateSource.Frankfurter;
-	const startedAt = new Date();
+	const { process, triggeredBy } = options;
+
+	const existing = await ExchangeRateModel.findOne({ date: dateKey }).select('process attemptCount').lean();
+	if (existing?.process === ExchangeRateProcess.AdminManual) {
+		logger.info('Exchange rates sync skipped (admin_manual)', { date: dateKey, process, triggeredBy });
+		return true;
+	}
+
+	const priorAttemptCount = existing?.attemptCount ?? 0;
 	let lastError: unknown;
 
 	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+		const attemptCount = priorAttemptCount + attempt;
 		try {
-			await fetchAndStore(dateKey, attempt, source, triggeredBy === 'cron' ? 'cron' : triggeredBy);
-			logger.info('Exchange rates synced', { date: dateKey, attempt, triggeredBy });
-			await writeSyncLog({
-				type: logType,
+			await fetchAndStore(dateKey, attemptCount, process, triggeredBy);
+			logger.info('Exchange rates synced', {
 				date: dateKey,
-				success: true,
-				error: null,
+				attempt,
+				attemptCount,
+				process,
 				triggeredBy,
-				startedAt,
 			});
 			return true;
 		} catch (error) {
 			lastError = error;
-			logger.warn('Exchange rates sync attempt failed', { date: dateKey, attempt, error });
-			await markRateError(dateKey, attempt, error);
+			logger.warn('Exchange rates sync attempt failed', {
+				date: dateKey,
+				attempt,
+				attemptCount,
+				process,
+				error,
+			});
+			await markRateError(dateKey, attemptCount, error, process, triggeredBy);
 			if (attempt < maxAttempts) {
 				const delayMs =
 					typeof options.retryDelayMs === 'function'
@@ -158,15 +172,7 @@ export async function syncExchangeRatesForDate(
 		}
 	}
 
-	logger.error('Exchange rates sync failed after retries', { date: dateKey, error: lastError });
-	await writeSyncLog({
-		type: logType,
-		date: dateKey,
-		success: false,
-		error: errorMessage(lastError),
-		triggeredBy,
-		startedAt,
-	});
+	logger.error('Exchange rates sync failed after retries', { date: dateKey, process, error: lastError });
 	return false;
 }
 

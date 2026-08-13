@@ -47,6 +47,8 @@ function buildDocument(): OpenAPIObject {
 			{ name: 'Savings Goals' },
 			{ name: 'Dashboard' },
 			{ name: 'Trends' },
+			{ name: 'Admin Exchange Rates' },
+			{ name: 'Internal FX' },
 		],
 	});
 }

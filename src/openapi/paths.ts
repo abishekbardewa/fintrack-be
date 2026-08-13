@@ -6,11 +6,13 @@ import {
 	bearerSecurity,
 	currencySchema,
 	errorResponseSchema,
+	exchangeRateListDataSchema,
 	healthDataSchema,
 	jsonContent,
 	publicBudgetSchema,
 	publicCategorySchema,
 	publicContributionSchema,
+	publicExchangeRateSchema,
 	publicSavingsGoalSchema,
 	publicTransactionSchema,
 	publicUserSchema,
@@ -717,6 +719,204 @@ export function registerPaths(registry: OpenAPIRegistry): void {
 			},
 			401: errorResponses[401],
 			422: errorResponses[422],
+		},
+	});
+
+	registry.registerPath({
+		method: 'post',
+		path: '/api/v1/admin/exchange-rates/sync-today',
+		tags: ['Admin Exchange Rates'],
+		summary: 'Sync today’s rates from Frankfurter',
+		description: 'Admin-only. Fetches today’s rates and sets process to admin_sync. triggeredBy is the admin display name from JWT.',
+		security: bearerSecurity,
+		responses: {
+			200: {
+				description: 'Sync succeeded',
+				content: jsonContent(
+					successResponseSchema(publicExchangeRateSchema, 'SyncTodayExchangeRateResponse'),
+				),
+			},
+			401: errorResponses[401],
+			502: {
+				description: 'Frankfurter sync failed',
+				content: jsonContent(errorResponseSchema),
+			},
+		},
+	});
+
+	registry.registerPath({
+		method: 'get',
+		path: '/api/v1/admin/exchange-rates',
+		tags: ['Admin Exchange Rates'],
+		summary: 'List exchange rates',
+		description: 'Admin-only. Returns paginated daily rates plus top-level base and source.',
+		security: bearerSecurity,
+		request: { query: req.listExchangeRatesQuerySchema },
+		responses: {
+			200: {
+				description: 'Exchange rate list',
+				content: jsonContent(
+					successResponseSchema(exchangeRateListDataSchema, 'ListExchangeRatesResponse'),
+				),
+			},
+			401: errorResponses[401],
+			422: errorResponses[422],
+		},
+	});
+
+	registry.registerPath({
+		method: 'post',
+		path: '/api/v1/admin/exchange-rates',
+		tags: ['Admin Exchange Rates'],
+		summary: 'Create exchange rate for a date',
+		description:
+			'Admin-only. If `rates` is omitted, fetches that date from Frankfurter (process admin_sync). If `rates` is provided, saves manually (process admin_manual). Do not send USD; base USD:1 is applied server-side.',
+		security: bearerSecurity,
+		request: {
+			body: { required: true, content: jsonContent(req.createExchangeRateBodySchema) },
+		},
+		responses: {
+			201: {
+				description: 'Exchange rate created',
+				content: jsonContent(
+					successResponseSchema(publicExchangeRateSchema, 'CreateExchangeRateResponse'),
+				),
+			},
+			401: errorResponses[401],
+			409: {
+				description: 'Date already exists',
+				content: jsonContent(errorResponseSchema),
+			},
+			422: errorResponses[422],
+			502: {
+				description: 'Frankfurter sync failed (date-only create)',
+				content: jsonContent(errorResponseSchema),
+			},
+		},
+	});
+
+	registry.registerPath({
+		method: 'get',
+		path: '/api/v1/admin/exchange-rates/{date}',
+		tags: ['Admin Exchange Rates'],
+		summary: 'Get exchange rate by date',
+		security: bearerSecurity,
+		request: { params: req.exchangeRateDateParamsSchema },
+		responses: {
+			200: {
+				description: 'Exchange rate for the date',
+				content: jsonContent(
+					successResponseSchema(publicExchangeRateSchema, 'GetExchangeRateResponse'),
+				),
+			},
+			401: errorResponses[401],
+			404: errorResponses[404],
+			422: errorResponses[422],
+		},
+	});
+
+	registry.registerPath({
+		method: 'patch',
+		path: '/api/v1/admin/exchange-rates/{date}',
+		tags: ['Admin Exchange Rates'],
+		summary: 'Update exchange rate',
+		description:
+			'Admin-only. Updating rates sets process to admin_manual. At least one of rates or notes is required.',
+		security: bearerSecurity,
+		request: {
+			params: req.exchangeRateDateParamsSchema,
+			body: { required: true, content: jsonContent(req.updateExchangeRateBodySchema) },
+		},
+		responses: {
+			200: {
+				description: 'Exchange rate updated',
+				content: jsonContent(
+					successResponseSchema(publicExchangeRateSchema, 'UpdateExchangeRateResponse'),
+				),
+			},
+			401: errorResponses[401],
+			404: errorResponses[404],
+			422: errorResponses[422],
+		},
+	});
+
+	registry.registerPath({
+		method: 'delete',
+		path: '/api/v1/admin/exchange-rates/{date}',
+		tags: ['Admin Exchange Rates'],
+		summary: 'Delete exchange rate',
+		security: bearerSecurity,
+		request: { params: req.exchangeRateDateParamsSchema },
+		responses: {
+			200: {
+				description: 'Exchange rate deleted',
+				content: jsonContent(successResponseSchema(z.null(), 'DeleteExchangeRateResponse')),
+			},
+			401: errorResponses[401],
+			404: errorResponses[404],
+			422: errorResponses[422],
+		},
+	});
+
+	registry.registerPath({
+		method: 'post',
+		path: '/api/v1/admin/exchange-rates/{date}/retry',
+		tags: ['Admin Exchange Rates'],
+		summary: 'Retry Frankfurter sync for a date',
+		description:
+			'Admin-only. Re-fetches rates for the date (process admin_retry). Skipped if process is admin_manual.',
+		security: bearerSecurity,
+		request: { params: req.exchangeRateDateParamsSchema },
+		responses: {
+			200: {
+				description: 'Retry succeeded',
+				content: jsonContent(
+					successResponseSchema(publicExchangeRateSchema, 'RetryExchangeRateResponse'),
+				),
+			},
+			401: errorResponses[401],
+			404: errorResponses[404],
+			422: errorResponses[422],
+			502: {
+				description: 'Frankfurter sync failed',
+				content: jsonContent(errorResponseSchema),
+			},
+		},
+	});
+
+	registry.registerPath({
+		method: 'post',
+		path: '/api/v1/internal/fx/sync-today',
+		tags: ['Internal FX'],
+		summary: 'External cron sync for today',
+		description:
+			'Called by cron-job.org (or similar). Requires header `x-cron-secret`. Returns success + message only (no rate payload).',
+		parameters: [
+			{
+				name: 'x-cron-secret',
+				in: 'header',
+				required: true,
+				schema: { type: 'string', minLength: 16 },
+				description: 'Must match server CRON_SECRET',
+			},
+		],
+		responses: {
+			200: {
+				description: 'Sync succeeded',
+				content: jsonContent(successResponseSchema(z.null(), 'InternalFxSyncTodayResponse')),
+			},
+			401: {
+				description: 'Invalid cron secret',
+				content: jsonContent(errorResponseSchema),
+			},
+			503: {
+				description: 'Cron secret not configured',
+				content: jsonContent(errorResponseSchema),
+			},
+			502: {
+				description: 'Frankfurter sync failed',
+				content: jsonContent(errorResponseSchema),
+			},
 		},
 	});
 }

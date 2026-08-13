@@ -75,23 +75,28 @@ export type UserRoleValue = (typeof UserRole)[keyof typeof UserRole];
 export const ExchangeRateStatus = {
 	Ok: 'ok',
 	Error: 'error',
-	Manual: 'manual',
 } as const;
 
 export type ExchangeRateStatusValue = (typeof ExchangeRateStatus)[keyof typeof ExchangeRateStatus];
 
 export const ExchangeRateSource = {
 	Frankfurter: 'frankfurter',
-	Manual: 'manual',
-	AdminRetry: 'admin_retry',
 } as const;
 
 export type ExchangeRateSourceValue = (typeof ExchangeRateSource)[keyof typeof ExchangeRateSource];
 
-export const FxSyncLogType = {
-	DailyCron: 'daily_cron',
-	RetryDate: 'retry_date',
-	Manual: 'manual',
+export const ExchangeRateProcess = {
+	SystemCron: 'system_cron',
+	ExternalCronOrg: 'external_cron_org',
+	AdminSync: 'admin_sync',
+	AdminRetry: 'admin_retry',
+	AdminManual: 'admin_manual',
 } as const;
 
-export type FxSyncLogTypeValue = (typeof FxSyncLogType)[keyof typeof FxSyncLogType];
+export type ExchangeRateProcessValue = (typeof ExchangeRateProcess)[keyof typeof ExchangeRateProcess];
+
+/** Display labels stored in ExchangeRate.triggeredBy for non-admin actors. */
+export const ExchangeRateTriggeredByLabel = {
+	SystemCron: 'System Cron',
+	ExternalCronOrg: 'External Cron.org',
+} as const;

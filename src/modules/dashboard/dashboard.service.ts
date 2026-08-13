@@ -165,6 +165,20 @@ async function expenseByCategoryBreakdown(
 	categories: Map<string, CategoryRow>,
 	preferred: string,
 ): Promise<CategoryBreakdownSlice[]> {
+	const childrenByParent = new Map<string, CategoryRow[]>();
+	for (const cat of categories.values()) {
+		const parentId = cat.parentCategoryId?.toString();
+		if (!parentId) {
+			continue;
+		}
+		const list = childrenByParent.get(parentId);
+		if (list) {
+			list.push(cat);
+		} else {
+			childrenByParent.set(parentId, [cat]);
+		}
+	}
+
 	const parentBuckets = new Map<string, TxnRow[]>();
 	for (const txn of expenses) {
 		const id = txn.categoryId.toString();
@@ -196,11 +210,13 @@ async function expenseByCategoryBreakdown(
 		}
 
 		const subcategories: SubcategorySlice[] = [];
+		const seenSubIds = new Set<string | null>();
 		for (const [subcategoryId, subRows] of subBuckets.entries()) {
 			const subAmount = await sumInPreferred(subRows, preferred);
 			if (subAmount <= 0) {
 				continue;
 			}
+			seenSubIds.add(subcategoryId);
 			subcategories.push({
 				subcategoryId,
 				name: subcategoryId ? (categories.get(subcategoryId)?.name ?? 'Unknown') : null,
@@ -208,6 +224,20 @@ async function expenseByCategoryBreakdown(
 				percent: round2((subAmount / amount) * 100),
 			});
 		}
+
+		for (const child of childrenByParent.get(categoryId) ?? []) {
+			const childId = child._id.toString();
+			if (seenSubIds.has(childId)) {
+				continue;
+			}
+			subcategories.push({
+				subcategoryId: childId,
+				name: child.name,
+				amount: 0,
+				percent: 0,
+			});
+		}
+
 		subcategories.sort((a, b) => b.amount - a.amount);
 
 		parents.push({

@@ -3,10 +3,13 @@ import app from './app.js';
 import { config, logger } from './config/index.js';
 import { connectDatabase, disconnectDatabase } from './database/connection.js';
 import { startFxCron } from './jobs/fxCron.js';
+import { seedCurrencies } from './modules/currency/currency.seed.js';
 
 async function bootstrap(): Promise<void> {
 	await connectDatabase();
+	await seedCurrencies();
 	startFxCron();
+
 
 	const server = createServer(app);
 

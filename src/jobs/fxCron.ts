@@ -1,12 +1,16 @@
 import cron from 'node-cron';
 import { config } from '../config/env.js';
+import { ExchangeRateProcess, ExchangeRateTriggeredByLabel } from '../config/enums.js';
 import { logger } from '../config/logger.js';
 import { syncExchangeRatesForDate, toRateDateKey } from '../modules/exchange-rate/exchange-rate.service.js';
 
 async function runFxSyncJob(): Promise<void> {
 	const dateKey = toRateDateKey();
 	logger.info('Starting FX cron sync', { date: dateKey });
-	await syncExchangeRatesForDate(dateKey);
+	await syncExchangeRatesForDate(dateKey, {
+		process: ExchangeRateProcess.SystemCron,
+		triggeredBy: ExchangeRateTriggeredByLabel.SystemCron,
+	});
 }
 
 export function startFxCron(): void {

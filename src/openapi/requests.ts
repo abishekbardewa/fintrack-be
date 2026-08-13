@@ -1,6 +1,8 @@
 import {
 	BudgetPeriodType,
 	CategoryKind,
+	ExchangeRateProcess,
+	ExchangeRateStatus,
 	ExportFormat,
 	ExportRangePreset,
 	SavingsGoalStatus,
@@ -236,3 +238,54 @@ export const importTransactionsBodySchema = z
 			.max(limits.importMaxRows),
 	})
 	.openapi('ImportTransactionsBody');
+
+const exchangeRateDateKeySchema = z
+	.string()
+	.trim()
+	.regex(/^\d{4}-\d{2}-\d{2}$/)
+	.openapi({ example: '2026-08-13' });
+
+const exchangeRatesMapSchema = z
+	.record(z.string().trim().toUpperCase(), z.number().positive())
+	.openapi({ example: { EUR: 0.92, INR: 83.5 } });
+
+export const listExchangeRatesQuerySchema = z
+	.object({
+		from: exchangeRateDateKeySchema.optional(),
+		to: exchangeRateDateKeySchema.optional(),
+		status: z.enum([ExchangeRateStatus.Ok, ExchangeRateStatus.Error]).optional(),
+		process: z
+			.enum([
+				ExchangeRateProcess.SystemCron,
+				ExchangeRateProcess.ExternalCronOrg,
+				ExchangeRateProcess.AdminSync,
+				ExchangeRateProcess.AdminRetry,
+				ExchangeRateProcess.AdminManual,
+			])
+			.optional(),
+		limit: z.coerce.number().int().min(1).max(500).default(100),
+		page: z.coerce.number().int().min(1).default(1),
+	})
+	.openapi('ListExchangeRatesQuery');
+
+export const exchangeRateDateParamsSchema = z
+	.object({
+		date: exchangeRateDateKeySchema,
+	})
+	.openapi('ExchangeRateDateParams');
+
+export const createExchangeRateBodySchema = z
+	.object({
+		date: exchangeRateDateKeySchema,
+		base: z.string().trim().toUpperCase().default(limits.systemBaseCurrency).openapi({ example: 'USD' }),
+		rates: exchangeRatesMapSchema.optional(),
+		notes: z.string().trim().max(500).nullish(),
+	})
+	.openapi('CreateExchangeRateBody');
+
+export const updateExchangeRateBodySchema = z
+	.object({
+		rates: exchangeRatesMapSchema.optional(),
+		notes: z.string().trim().max(500).nullish(),
+	})
+	.openapi('UpdateExchangeRateBody');

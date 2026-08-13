@@ -1,6 +1,10 @@
-import { ExchangeRateStatus, type ExchangeRateSourceValue, type ExchangeRateStatusValue } from '../../config/enums.js';
+import {
+	ExchangeRateStatus,
+	type ExchangeRateProcessValue,
+	type ExchangeRateSourceValue,
+	type ExchangeRateStatusValue,
+} from '../../config/enums.js';
 import type { ExchangeRateDocument } from './exchange-rate.model.js';
-import type { FxSyncLogDocument } from './fx-sync-log.model.js';
 
 function ratesToObject(rates: Map<string, number> | Record<string, number> | undefined): Record<string, number> {
 	if (!rates) {
@@ -24,6 +28,8 @@ export type PublicExchangeRate = {
 	fetchedAt: Date;
 	source: ExchangeRateSourceValue | string;
 	status: ExchangeRateStatusValue | string;
+	process: ExchangeRateProcessValue | string;
+	triggeredBy: string;
 	attemptCount: number;
 	lastError: { message: string; at: Date } | null;
 	notes: string | null;
@@ -41,6 +47,8 @@ export function toPublicExchangeRate(
 		| 'fetchedAt'
 		| 'source'
 		| 'status'
+		| 'process'
+		| 'triggeredBy'
 		| 'attemptCount'
 		| 'lastError'
 		| 'notes'
@@ -57,6 +65,8 @@ export function toPublicExchangeRate(
 		fetchedAt: doc.fetchedAt,
 		source: doc.source,
 		status: doc.status ?? ExchangeRateStatus.Ok,
+		process: doc.process,
+		triggeredBy: doc.triggeredBy,
 		attemptCount: doc.attemptCount ?? 1,
 		lastError: doc.lastError
 			? {
@@ -68,36 +78,5 @@ export function toPublicExchangeRate(
 		updatedBy: doc.updatedBy ?? null,
 		createdAt: doc.createdAt,
 		updatedAt: doc.updatedAt,
-	};
-}
-
-export type PublicFxSyncLog = {
-	id: string;
-	type: string;
-	date: string | null;
-	success: boolean;
-	error: string | null;
-	triggeredBy: string;
-	startedAt: Date;
-	finishedAt: Date;
-	createdAt?: Date;
-};
-
-export function toPublicFxSyncLog(
-	doc: Pick<
-		FxSyncLogDocument,
-		'type' | 'date' | 'success' | 'error' | 'triggeredBy' | 'startedAt' | 'finishedAt' | 'createdAt'
-	> & { _id: { toString(): string } },
-): PublicFxSyncLog {
-	return {
-		id: doc._id.toString(),
-		type: doc.type,
-		date: doc.date ?? null,
-		success: doc.success,
-		error: doc.error ?? null,
-		triggeredBy: doc.triggeredBy,
-		startedAt: doc.startedAt,
-		finishedAt: doc.finishedAt,
-		createdAt: doc.createdAt,
 	};
 }

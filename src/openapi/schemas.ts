@@ -3,6 +3,9 @@ import {
 	BudgetPeriodType,
 	BudgetProgressStatus,
 	CategoryKind,
+	ExchangeRateProcess,
+	ExchangeRateSource,
+	ExchangeRateStatus,
 	SavingsContributionSource,
 	SavingsGoalStatus,
 	TransactionType,
@@ -350,6 +353,52 @@ export const trendsDataSchema = z
 		),
 	})
 	.openapi('TrendsData');
+
+export const exchangeRateLastErrorSchema = z
+	.object({
+		message: z.string(),
+		at: isoDateTimeSchema,
+	})
+	.openapi('ExchangeRateLastError');
+
+export const publicExchangeRateSchema = z
+	.object({
+		id: objectIdSchema,
+		date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).openapi({ example: '2026-08-13' }),
+		base: z.string().length(3).openapi({ example: 'USD' }),
+		rates: z
+			.record(z.string(), z.number())
+			.openapi({ example: { USD: 1, EUR: 0.92, INR: 83.5 } }),
+		fetchedAt: isoDateTimeSchema,
+		source: z.literal(ExchangeRateSource.Frankfurter),
+		status: z.enum([ExchangeRateStatus.Ok, ExchangeRateStatus.Error]),
+		process: z.enum([
+			ExchangeRateProcess.SystemCron,
+			ExchangeRateProcess.ExternalCronOrg,
+			ExchangeRateProcess.AdminSync,
+			ExchangeRateProcess.AdminRetry,
+			ExchangeRateProcess.AdminManual,
+		]),
+		triggeredBy: z.string().openapi({ example: 'System Cron' }),
+		attemptCount: z.number().int().min(1),
+		lastError: exchangeRateLastErrorSchema.nullable(),
+		notes: z.string().nullable(),
+		updatedBy: z.string().nullable(),
+		createdAt: isoDateTimeSchema.optional(),
+		updatedAt: isoDateTimeSchema.optional(),
+	})
+	.openapi('ExchangeRate');
+
+export const exchangeRateListDataSchema = z
+	.object({
+		items: z.array(publicExchangeRateSchema),
+		page: z.number().int(),
+		limit: z.number().int(),
+		total: z.number().int(),
+		base: z.string().length(3).openapi({ example: 'USD' }),
+		source: z.literal(ExchangeRateSource.Frankfurter),
+	})
+	.openapi('ExchangeRateListData');
 
 export const jsonContent = <T extends z.ZodTypeAny>(schema: T) => ({
 	'application/json': { schema },

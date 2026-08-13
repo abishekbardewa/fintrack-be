@@ -6,7 +6,6 @@ export const currencySeeds = [
 	{ code: 'CAD', name: 'Canadian Dollar', symbol: 'C$', decimals: 2, enabled: true, sortOrder: 50 },
 	{ code: 'AUD', name: 'Australian Dollar', symbol: 'A$', decimals: 2, enabled: true, sortOrder: 60 },
 	{ code: 'JPY', name: 'Japanese Yen', symbol: '¥', decimals: 0, enabled: true, sortOrder: 70 },
-	{ code: 'AED', name: 'UAE Dirham', symbol: 'د.إ', decimals: 2, enabled: true, sortOrder: 80 },
 ] as const;
 
 export type CurrencySeedCode = (typeof currencySeeds)[number]['code'];

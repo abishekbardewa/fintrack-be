@@ -1,8 +1,12 @@
-import { ExchangeRateSource, ExchangeRateStatus, FxSyncLogType } from '../../config/enums.js';
+import {
+	ExchangeRateProcess,
+	ExchangeRateSource,
+	ExchangeRateStatus,
+} from '../../config/enums.js';
 import { limits } from '../../config/limits.js';
 import { messages } from '../../config/messages.js';
 import { AppError } from '../../shared/errors/AppError.js';
-import { toPublicExchangeRate, toPublicFxSyncLog } from './exchange-rate.mapper.js';
+import { toPublicExchangeRate } from './exchange-rate.mapper.js';
 import { ExchangeRateModel } from './exchange-rate.model.js';
 import {
 	clearExchangeRateMemoryCache,
@@ -12,10 +16,8 @@ import {
 import type {
 	CreateExchangeRateBody,
 	ListExchangeRatesQuery,
-	ListFxSyncLogsQuery,
 	UpdateExchangeRateBody,
 } from './exchange-rate.validation.js';
-import { FxSyncLogModel } from './fx-sync-log.model.js';
 
 export async function listExchangeRates(query: ListExchangeRatesQuery) {
 	const filter: Record<string, unknown> = {};
@@ -27,6 +29,9 @@ export async function listExchangeRates(query: ListExchangeRatesQuery) {
 	}
 	if (query.status) {
 		filter.status = query.status;
+	}
+	if (query.process) {
+		filter.process = query.process;
 	}
 
 	const skip = (query.page - 1) * query.limit;
@@ -40,6 +45,8 @@ export async function listExchangeRates(query: ListExchangeRatesQuery) {
 		page: query.page,
 		limit: query.limit,
 		total,
+		base: limits.systemBaseCurrency,
+		source: ExchangeRateSource.Frankfurter,
 	};
 }
 
@@ -51,12 +58,33 @@ export async function getExchangeRateByDate(date: string) {
 	return toPublicExchangeRate(doc);
 }
 
-export async function createExchangeRate(adminUserId: string, input: CreateExchangeRateBody) {
+export async function createExchangeRate(adminName: string, input: CreateExchangeRateBody) {
 	const existing = await ExchangeRateModel.findOne({ date: input.date }).lean();
 	if (existing) {
 		throw new AppError(messages.VALIDATION_FAILED, 409, [
 			{ field: 'date', message: 'Exchange rate for this date already exists' },
 		]);
+	}
+
+	if (!input.rates) {
+		const ok = await syncExchangeRatesForDate(input.date, {
+			maxAttempts: 1,
+			retryDelayMs: 0,
+			process: ExchangeRateProcess.AdminSync,
+			triggeredBy: adminName,
+		});
+		if (!ok) {
+			throw new AppError(messages.EXCHANGE_RATE_SYNC_FAILED, 502);
+		}
+
+		if (input.notes !== undefined && input.notes !== null) {
+			await ExchangeRateModel.updateOne(
+				{ date: input.date },
+				{ $set: { notes: input.notes, updatedBy: adminName } },
+			);
+		}
+
+		return getExchangeRateByDate(input.date);
 	}
 
 	const rates = { ...input.rates, [limits.systemBaseCurrency]: 1 };
@@ -66,18 +94,20 @@ export async function createExchangeRate(adminUserId: string, input: CreateExcha
 		base: input.base || limits.systemBaseCurrency,
 		rates,
 		fetchedAt: now,
-		source: ExchangeRateSource.Manual,
-		status: ExchangeRateStatus.Manual,
+		source: ExchangeRateSource.Frankfurter,
+		status: ExchangeRateStatus.Ok,
+		process: ExchangeRateProcess.AdminManual,
+		triggeredBy: adminName,
 		attemptCount: 1,
 		lastError: null,
 		notes: input.notes ?? null,
-		updatedBy: adminUserId,
+		updatedBy: adminName,
 	});
 	clearExchangeRateMemoryCache(input.date);
 	return toPublicExchangeRate(doc);
 }
 
-export async function updateExchangeRate(adminUserId: string, date: string, input: UpdateExchangeRateBody) {
+export async function updateExchangeRate(adminName: string, date: string, input: UpdateExchangeRateBody) {
 	const doc = await ExchangeRateModel.findOne({ date });
 	if (!doc) {
 		throw new AppError(messages.EXCHANGE_RATE_NOT_FOUND, 404);
@@ -85,18 +115,18 @@ export async function updateExchangeRate(adminUserId: string, date: string, inpu
 
 	if (input.rates) {
 		doc.set('rates', { ...input.rates, [limits.systemBaseCurrency]: 1 });
-		doc.source = ExchangeRateSource.Manual;
-		doc.status = ExchangeRateStatus.Manual;
+		doc.source = ExchangeRateSource.Frankfurter;
+		doc.status = ExchangeRateStatus.Ok;
+		doc.process = ExchangeRateProcess.AdminManual;
+		doc.triggeredBy = adminName;
 		doc.fetchedAt = new Date();
+		doc.attemptCount = 1;
 		doc.lastError = null;
 	}
 	if (input.notes !== undefined) {
 		doc.notes = input.notes ?? null;
 	}
-	if (input.status !== undefined) {
-		doc.status = input.status;
-	}
-	doc.updatedBy = adminUserId;
+	doc.updatedBy = adminName;
 	await doc.save();
 	clearExchangeRateMemoryCache(date);
 	return toPublicExchangeRate(doc);
@@ -110,13 +140,12 @@ export async function deleteExchangeRate(date: string) {
 	clearExchangeRateMemoryCache(date);
 }
 
-export async function retryExchangeRate(adminUserId: string, date: string) {
+export async function retryExchangeRate(adminName: string, date: string) {
 	const ok = await syncExchangeRatesForDate(date, {
 		maxAttempts: 1,
 		retryDelayMs: 0,
-		triggeredBy: adminUserId,
-		logType: FxSyncLogType.RetryDate,
-		source: ExchangeRateSource.AdminRetry,
+		process: ExchangeRateProcess.AdminRetry,
+		triggeredBy: adminName,
 	});
 	if (!ok) {
 		throw new AppError(messages.EXCHANGE_RATE_SYNC_FAILED, 502);
@@ -124,35 +153,16 @@ export async function retryExchangeRate(adminUserId: string, date: string) {
 	return getExchangeRateByDate(date);
 }
 
-export async function syncTodayExchangeRate(adminUserId: string) {
+export async function syncTodayExchangeRate(adminName: string) {
 	const date = toRateDateKey();
 	const ok = await syncExchangeRatesForDate(date, {
 		maxAttempts: 1,
 		retryDelayMs: 0,
-		triggeredBy: adminUserId,
-		logType: FxSyncLogType.RetryDate,
-		source: ExchangeRateSource.AdminRetry,
+		process: ExchangeRateProcess.AdminSync,
+		triggeredBy: adminName,
 	});
 	if (!ok) {
 		throw new AppError(messages.EXCHANGE_RATE_SYNC_FAILED, 502);
 	}
 	return getExchangeRateByDate(date);
-}
-
-export async function listFxSyncLogs(query: ListFxSyncLogsQuery) {
-	const filter: Record<string, unknown> = {};
-	if (query.success !== undefined) {
-		filter.success = query.success;
-	}
-	const skip = (query.page - 1) * query.limit;
-	const [rows, total] = await Promise.all([
-		FxSyncLogModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(query.limit),
-		FxSyncLogModel.countDocuments(filter),
-	]);
-	return {
-		items: rows.map((row) => toPublicFxSyncLog(row)),
-		page: query.page,
-		limit: query.limit,
-		total,
-	};
 }

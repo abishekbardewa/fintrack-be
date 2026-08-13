@@ -6,7 +6,6 @@ import {
 	deleteExchangeRate,
 	getExchangeRate,
 	listExchangeRates,
-	listFxSyncLogs,
 	retryExchangeRate,
 	syncTodayExchangeRate,
 	updateExchangeRate,
@@ -15,7 +14,6 @@ import {
 	createExchangeRateBodySchema,
 	exchangeRateDateParamsSchema,
 	listExchangeRatesQuerySchema,
-	listFxSyncLogsQuerySchema,
 	updateExchangeRateBodySchema,
 } from './exchange-rate.validation.js';
 
@@ -23,7 +21,6 @@ const adminExchangeRateRouter = Router();
 
 adminExchangeRateRouter.use(requireAuth, requireAdmin);
 
-adminExchangeRateRouter.get('/logs', validate({ query: listFxSyncLogsQuerySchema }), listFxSyncLogs);
 adminExchangeRateRouter.post('/sync-today', syncTodayExchangeRate);
 adminExchangeRateRouter.get('/', validate({ query: listExchangeRatesQuerySchema }), listExchangeRates);
 adminExchangeRateRouter.post('/', validate({ body: createExchangeRateBodySchema }), createExchangeRate);

@@ -1,5 +1,5 @@
 import { Schema, model, type HydratedDocument, type InferSchemaType } from 'mongoose';
-import { ExchangeRateSource, ExchangeRateStatus } from '../../config/enums.js';
+import { ExchangeRateProcess, ExchangeRateSource, ExchangeRateStatus } from '../../config/enums.js';
 import { limits } from '../../config/limits.js';
 
 const lastErrorSchema = new Schema(
@@ -29,6 +29,13 @@ const exchangeRateSchema = new Schema(
 			default: ExchangeRateStatus.Ok,
 			index: true,
 		},
+		process: {
+			type: String,
+			required: true,
+			enum: Object.values(ExchangeRateProcess),
+			index: true,
+		},
+		triggeredBy: { type: String, required: true, trim: true },
 		attemptCount: { type: Number, default: 1, min: 1 },
 		lastError: { type: lastErrorSchema, default: null },
 		notes: { type: String, trim: true, default: null },

@@ -6,5 +6,4 @@ export const mockUsdRates: Record<string, number> = {
 	CAD: 1.36,
 	AUD: 1.53,
 	JPY: 149.5,
-	AED: 3.67,
 };

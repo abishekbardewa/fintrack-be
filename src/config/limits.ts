@@ -1,6 +1,6 @@
 export const limits = {
-	maxMainCategoriesPerKind: 25,
-	maxSubcategoriesPerParent: 20,
+	maxMainCategoriesPerKind: 100,
+	maxSubcategoriesPerParent: 100,
 	budgetWarningPercent: 80,
 	budgetOverPercent: 100,
 	maxActiveSavingsGoals: 10,

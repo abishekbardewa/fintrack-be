@@ -33,6 +33,22 @@ export const updateMe = catchAsync(async (req: Request, res: Response) => {
 	});
 });
 
+export const updateAvatar = catchAsync(async (req: Request, res: Response) => {
+	if (!req.user?.userId) {
+		throw new AppError(messages.TOKEN_INVALID, 401);
+	}
+	if (!req.file) {
+		throw new AppError(messages.AVATAR_FILE_REQUIRED, 422);
+	}
+	const user = await userService.updateAvatar(req.user.userId, req.file.buffer);
+	sendSuccess({
+		res,
+		statusCode: 200,
+		message: messages.AVATAR_UPDATED,
+		data: { user },
+	});
+});
+
 export const changePassword = catchAsync(async (req: Request, res: Response) => {
 	if (!req.user?.userId) {
 		throw new AppError(messages.TOKEN_INVALID, 401);

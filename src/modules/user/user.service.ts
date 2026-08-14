@@ -1,5 +1,8 @@
+import { limits } from '../../config/limits.js';
 import { messages } from '../../config/messages.js';
 import { AppError } from '../../shared/errors/AppError.js';
+import { deleteBlobByUrl, uploadBlob } from '../../shared/utils/blob.js';
+import { toAvatarWebp } from '../../shared/utils/image.js';
 import { comparePassword, hashPassword } from '../../shared/utils/password.js';
 import { CurrencyModel } from '../currency/currency.model.js';
 import { toPublicUser } from './user.mapper.js';
@@ -33,6 +36,38 @@ export async function updateMe(userId: string, input: UpdateMeBody) {
 
 	if (!user) {
 		throw new AppError(messages.USER_NOT_FOUND, 404);
+	}
+
+	return toPublicUser(user);
+}
+
+export async function updateAvatar(userId: string, file: Buffer) {
+	const existing = await UserModel.findById(userId).select('avatarUrl').lean();
+	if (!existing) {
+		throw new AppError(messages.USER_NOT_FOUND, 404);
+	}
+
+	const previousUrl = existing.avatarUrl ?? null;
+	const image = await toAvatarWebp(file);
+	const pathname = `${limits.avatarBlobFolder}/${userId}.${image.extension}`;
+	const uploadedUrl = await uploadBlob(pathname, image.buffer, image.contentType);
+
+	const user = await UserModel.findByIdAndUpdate(
+		userId,
+		{ avatarUrl: uploadedUrl },
+		{ new: true, runValidators: true },
+	).catch(async (error: unknown) => {
+		await deleteBlobByUrl(uploadedUrl);
+		throw error;
+	});
+
+	if (!user) {
+		await deleteBlobByUrl(uploadedUrl);
+		throw new AppError(messages.USER_NOT_FOUND, 404);
+	}
+
+	if (previousUrl && previousUrl !== uploadedUrl) {
+		await deleteBlobByUrl(previousUrl);
 	}
 
 	return toPublicUser(user);

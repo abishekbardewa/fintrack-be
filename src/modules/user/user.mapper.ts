@@ -8,12 +8,13 @@ export type PublicUser = {
 	role: UserRoleValue;
 	currency: string;
 	timezone: string;
+	avatarUrl: string | null;
 	createdAt?: Date;
 	updatedAt?: Date;
 };
 
 export function toPublicUser(
-	user: Pick<UserDocument, 'name' | 'email' | 'currency' | 'timezone' | 'createdAt' | 'updatedAt'> & {
+	user: Pick<UserDocument, 'name' | 'email' | 'currency' | 'timezone' | 'avatarUrl' | 'createdAt' | 'updatedAt'> & {
 		_id: { toString(): string };
 		role?: UserRoleValue | null;
 	},
@@ -25,6 +26,7 @@ export function toPublicUser(
 		role: user.role ?? UserRole.User,
 		currency: user.currency,
 		timezone: user.timezone,
+		avatarUrl: user.avatarUrl ?? null,
 		createdAt: user.createdAt,
 		updatedAt: user.updatedAt,
 	};

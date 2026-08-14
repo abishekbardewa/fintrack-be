@@ -14,6 +14,7 @@ const userSchema = new Schema(
 			index: true,
 		},
 		password: { type: String, required: true, select: false },
+		avatarUrl: { type: String, default: null },
 		role: {
 			type: String,
 			required: true,

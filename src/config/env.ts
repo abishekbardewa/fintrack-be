@@ -52,6 +52,10 @@ const envSchema = z.object({
 	FX_ENABLED: z.enum(['true', 'false']).optional(),
 	FX_CRON_HOUR_UTC: z.coerce.number().int().min(0).max(23).default(16),
 	CRON_SECRET: z.string().min(16).optional(),
+	BLOB_READ_WRITE_TOKEN: z.preprocess(
+		(value) => (value === '' ? undefined : value),
+		z.string().min(1).optional(),
+	),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -91,6 +95,9 @@ export const config = {
 	},
 	cron: {
 		secret: env.CRON_SECRET,
+	},
+	blob: {
+		readWriteToken: env.BLOB_READ_WRITE_TOKEN,
 	},
 } as const;
 

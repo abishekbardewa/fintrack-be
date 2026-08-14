@@ -1,5 +1,9 @@
 import ExcelJS from 'exceljs';
-import { exportTransactionColumns } from '../../config/exportColumns.js';
+import {
+	exportTransactionColumnLabels,
+	exportTransactionColumnWidths,
+	exportTransactionColumns,
+} from '../../config/exportColumns.js';
 import { ExportFormat, ExportRangePreset, TransactionType } from '../../config/enums.js';
 import { limits } from '../../config/limits.js';
 import { messages } from '../../config/messages.js';
@@ -9,8 +13,10 @@ import {
 	addMonths,
 	getZonedYmd,
 	monthLongLabel,
+	monthShortLabel,
 	monthWindow,
 	resolveTimeZone,
+	shortDateLabel,
 	type DateWindow,
 } from '../../shared/utils/dateWindows.js';
 import { round2 } from '../../shared/utils/money.js';
@@ -47,6 +53,26 @@ function formatZonedDate(date: Date, timeZone: string): string {
 	return `${ymd.year}-${String(ymd.month).padStart(2, '0')}-${String(ymd.day).padStart(2, '0')}`;
 }
 
+function formatDisplayDate(date: Date, timeZone: string): string {
+	const ymd = getZonedYmd(date, timeZone);
+	return shortDateLabel(ymd.year, ymd.month, ymd.day);
+}
+
+function formatAmount(value: number): string {
+	return value.toLocaleString('en-US', {
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2,
+	});
+}
+
+function amountNumFmt(currency: string): string {
+	return `#,##0.00" ${currency}"`;
+}
+
+function slugifyMonth(year: number, month: number): string {
+	return `${monthShortLabel(year, month).toLowerCase()}-${year}`;
+}
+
 function assertRangeWithinLimit(from: Date, to: Date): void {
 	const spanDays = Math.ceil((to.getTime() - from.getTime()) / DAY_MS) + 1;
 	if (spanDays > limits.exportMaxRangeDays) {
@@ -58,18 +84,18 @@ function resolvePresetWindow(
 	preset: (typeof ExportRangePreset)[keyof typeof ExportRangePreset],
 	timeZone: string,
 	now = new Date(),
-): { window: DateWindow; label: string } {
+): { window: DateWindow; label: string; slug: string } {
 	const today = getZonedYmd(now, timeZone);
 
 	switch (preset) {
-		case ExportRangePreset.ThisMonth: {
-			const window = monthWindow(today.year, today.month, timeZone);
-			return { window, label: `This month (${monthLongLabel(today.year, today.month)})` };
-		}
 		case ExportRangePreset.LastMonth: {
 			const prev = addMonths(today.year, today.month, -1);
 			const window = monthWindow(prev.year, prev.month, timeZone);
-			return { window, label: `Last month (${monthLongLabel(prev.year, prev.month)})` };
+			return {
+				window,
+				label: `Last month (${monthLongLabel(prev.year, prev.month)})`,
+				slug: `last-month-${slugifyMonth(prev.year, prev.month)}`,
+			};
 		}
 		case ExportRangePreset.Last3Months: {
 			const start = addMonths(today.year, today.month, -2);
@@ -79,11 +105,16 @@ function resolvePresetWindow(
 					to: monthWindow(today.year, today.month, timeZone).to,
 				},
 				label: 'Last 3 months',
+				slug: `last-3-months-${slugifyMonth(start.year, start.month)}-to-${slugifyMonth(today.year, today.month)}`,
 			};
 		}
 		default: {
 			const window = monthWindow(today.year, today.month, timeZone);
-			return { window, label: `This month (${monthLongLabel(today.year, today.month)})` };
+			return {
+				window,
+				label: `This month (${monthLongLabel(today.year, today.month)})`,
+				slug: `this-month-${slugifyMonth(today.year, today.month)}`,
+			};
 		}
 	}
 }
@@ -91,13 +122,16 @@ function resolvePresetWindow(
 function resolveExportWindow(
 	query: ExportTransactionsQuery,
 	timeZone: string,
-): { from: Date; to: Date; rangeLabel: string; usedPreset: string | null } {
+): { from: Date; to: Date; rangeLabel: string; rangeSlug: string; usedPreset: string | null } {
 	if (query.from && query.to) {
 		assertRangeWithinLimit(query.from, query.to);
+		const fromLabel = formatZonedDate(query.from, timeZone);
+		const toLabel = formatZonedDate(query.to, timeZone);
 		return {
 			from: query.from,
 			to: query.to,
-			rangeLabel: `Filtered (${formatZonedDate(query.from, timeZone)} → ${formatZonedDate(query.to, timeZone)})`,
+			rangeLabel: `Filtered (${fromLabel} → ${toLabel})`,
+			rangeSlug: `${fromLabel}-to-${toLabel}`,
 			usedPreset: null,
 		};
 	}
@@ -109,6 +143,7 @@ function resolveExportWindow(
 		from: resolved.window.from,
 		to: resolved.window.to,
 		rangeLabel: resolved.label,
+		rangeSlug: resolved.slug,
 		usedPreset: preset,
 	};
 }
@@ -133,19 +168,33 @@ function csvEscape(value: string | number): string {
 	return str;
 }
 
-function buildCsv(rows: ExportRow[]): Buffer {
-	const header = exportTransactionColumns.join(',');
+function buildCsv(rows: ExportRow[], preferredCurrency: string): Buffer {
+	const header = exportTransactionColumns
+		.map((col) => csvEscape(exportTransactionColumnLabels[col]))
+		.join(',');
 	const lines = rows.map((row) =>
-		exportTransactionColumns.map((col) => csvEscape(row[col])).join(','),
+		exportTransactionColumns
+			.map((col) => {
+				if (col === 'amount') {
+					return csvEscape(`${formatAmount(row.amount)} ${row.currency}`);
+				}
+				if (col === 'amountPreferred') {
+					return csvEscape(`${formatAmount(row.amountPreferred)} ${preferredCurrency}`);
+				}
+				return csvEscape(row[col]);
+			})
+			.join(','),
 	);
 	return Buffer.from([header, ...lines].join('\n'), 'utf8');
 }
 
+const HEADER_FILL_COLOR = 'FF1F3864';
+const BAND_FILL_COLOR = 'FFF2F5FA';
+
 async function buildXlsx(
 	rows: ExportRow[],
 	meta: {
-		generatedAt: string;
-		timezone: string;
+		generatedDate: string;
 		rangeLabel: string;
 		preferredCurrency: string;
 		filterLines: string[];
@@ -160,36 +209,68 @@ async function buildXlsx(
 	workbook.creator = 'FinTrack';
 	workbook.created = new Date();
 
+	const preferredFmt = amountNumFmt(meta.preferredCurrency);
 	const summary = workbook.addWorksheet('Summary');
-	summary.columns = [{ width: 28 }, { width: 56 }];
-	const summaryRows: Array<[string, string | number]> = [
-		['FinTrack export', ''],
-		['Generated', meta.generatedAt],
-		['Timezone', meta.timezone],
-		['Range', meta.rangeLabel],
-		['Preferred currency (totals)', meta.preferredCurrency],
-		['Filters', meta.filterLines.length > 0 ? meta.filterLines.join('; ') : 'None'],
-		['Columns', exportTransactionColumns.join(', ')],
-		['', ''],
-		['Total rows', rows.length],
-		['Expense count', meta.expenseCount],
-		['Income count', meta.incomeCount],
-		['Income total', meta.incomeTotal],
-		['Expense total', meta.expenseTotal],
-		['Net', meta.net],
+	summary.columns = [{ width: 24 }, { width: 52 }];
+
+	const titleRow = summary.addRow(['FinTrack Export']);
+	titleRow.height = 24;
+	titleRow.getCell(1).font = { bold: true, size: 16, color: { argb: HEADER_FILL_COLOR } };
+	summary.addRow([]);
+
+	const summaryRows: Array<{ label: string; value: string | number; numFmt?: string }> = [
+		{ label: 'Generated Date', value: meta.generatedDate },
+		{ label: 'Range', value: meta.rangeLabel },
+		{ label: 'Currency', value: meta.preferredCurrency },
+		{
+			label: 'Filters',
+			value: meta.filterLines.length > 0 ? meta.filterLines.join('; ') : 'None',
+		},
+		{ label: '', value: '' },
+		{ label: 'Transaction Count', value: rows.length, numFmt: '#,##0' },
+		{ label: 'Expense Count', value: meta.expenseCount, numFmt: '#,##0' },
+		{ label: 'Income Count', value: meta.incomeCount, numFmt: '#,##0' },
+		{ label: '', value: '' },
+		{ label: 'Income Total', value: meta.incomeTotal, numFmt: preferredFmt },
+		{ label: 'Expense Total', value: meta.expenseTotal, numFmt: preferredFmt },
+		{ label: 'Net', value: meta.net, numFmt: preferredFmt },
 	];
-	for (const [key, value] of summaryRows) {
-		summary.addRow([key, value]);
+
+	for (const { label, value, numFmt } of summaryRows) {
+		const row = summary.addRow([label, value]);
+		row.getCell(1).font = { bold: true };
+		const valueCell = row.getCell(2);
+		valueCell.alignment = { horizontal: 'left' };
+		if (numFmt) {
+			valueCell.numFmt = numFmt;
+		}
 	}
 
 	const sheet = workbook.addWorksheet('Transactions');
 	sheet.columns = exportTransactionColumns.map((col) => ({
-		header: col,
+		header: exportTransactionColumnLabels[col],
 		key: col,
-		width: col === 'description' ? 36 : 16,
+		width: exportTransactionColumnWidths[col],
 	}));
-	for (const row of rows) {
-		sheet.addRow(row);
+
+	const headerRow = sheet.getRow(1);
+	headerRow.height = 20;
+	headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+	headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL_COLOR } };
+	headerRow.alignment = { vertical: 'middle' };
+	sheet.views = [{ state: 'frozen', ySplit: 1 }];
+	sheet.autoFilter = {
+		from: { row: 1, column: 1 },
+		to: { row: 1, column: exportTransactionColumns.length },
+	};
+
+	for (const [index, row] of rows.entries()) {
+		const added = sheet.addRow(row);
+		added.getCell('amount').numFmt = amountNumFmt(row.currency);
+		added.getCell('amountPreferred').numFmt = preferredFmt;
+		if (index % 2 === 1) {
+			added.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BAND_FILL_COLOR } };
+		}
 	}
 
 	const arrayBuffer = await workbook.xlsx.writeBuffer();
@@ -207,7 +288,7 @@ export async function exportTransactions(
 
 	const preferred = user.currency;
 	const timeZone = resolveTimeZone(user.timezone, limits.defaultTimezone);
-	const { from, to, rangeLabel } = resolveExportWindow(query, timeZone);
+	const { from, to, rangeLabel, rangeSlug } = resolveExportWindow(query, timeZone);
 
 	const filter: Record<string, unknown> = {
 		userId,
@@ -260,7 +341,7 @@ export async function exportTransactions(
 		}
 
 		rows.push({
-			date: formatZonedDate(txn.date, timeZone),
+			date: formatDisplayDate(txn.date, timeZone),
 			type: txn.type,
 			category: categoryNames.get(txn.categoryId.toString()) ?? '',
 			subcategory: txn.subcategoryId
@@ -277,20 +358,18 @@ export async function exportTransactions(
 	expenseTotal = round2(expenseTotal);
 	const net = round2(incomeTotal - expenseTotal);
 	const filterLines = buildFilterLines(query);
-	const stamp = formatZonedDate(new Date(), timeZone);
-	const baseName = `fintrack-transactions-${stamp}`;
+	const baseName = `fintrack-transactions-${rangeSlug}`;
 
 	if (query.format === ExportFormat.Csv) {
 		return {
-			buffer: buildCsv(rows),
+			buffer: buildCsv(rows, preferred),
 			contentType: 'text/csv; charset=utf-8',
 			filename: `${baseName}.csv`,
 		};
 	}
 
 	const buffer = await buildXlsx(rows, {
-		generatedAt: new Date().toISOString(),
-		timezone: timeZone,
+		generatedDate: formatDisplayDate(new Date(), timeZone),
 		rangeLabel,
 		preferredCurrency: preferred,
 		filterLines,

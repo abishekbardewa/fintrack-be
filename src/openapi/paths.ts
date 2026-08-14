@@ -130,6 +130,46 @@ export function registerPaths(registry: OpenAPIRegistry): void {
 	});
 
 	registry.registerPath({
+		method: 'put',
+		path: '/api/v1/me/avatar',
+		tags: ['User'],
+		summary: 'Upload avatar',
+		description:
+			'Uploads an avatar image (`multipart/form-data`, field `avatar`). The image is resized to a square WebP and stored in Vercel Blob; any previous avatar is deleted.',
+		security: bearerSecurity,
+		request: {
+			body: {
+				required: true,
+				content: {
+					'multipart/form-data': {
+						schema: z.object({
+							avatar: z.string().openapi({ type: 'string', format: 'binary' }),
+						}),
+					},
+				},
+			},
+		},
+		responses: {
+			200: {
+				description: 'Updated user',
+				content: jsonContent(
+					successResponseSchema(z.object({ user: publicUserSchema }), 'UpdateAvatarResponse'),
+				),
+			},
+			401: errorResponses[401],
+			413: {
+				description: 'Image too large',
+				content: jsonContent(errorResponseSchema),
+			},
+			422: errorResponses[422],
+			503: {
+				description: 'Avatar storage not configured',
+				content: jsonContent(errorResponseSchema),
+			},
+		},
+	});
+
+	registry.registerPath({
 		method: 'patch',
 		path: '/api/v1/me/password',
 		tags: ['User'],

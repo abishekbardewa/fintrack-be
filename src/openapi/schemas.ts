@@ -49,6 +49,7 @@ export const publicUserSchema = z
 		email: z.string().email(),
 		currency: z.string().length(3),
 		timezone: z.string(),
+		avatarUrl: z.string().url().nullable(),
 		createdAt: isoDateTimeSchema.optional(),
 		updatedAt: isoDateTimeSchema.optional(),
 	})

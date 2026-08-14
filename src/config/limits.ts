@@ -21,6 +21,10 @@ export const limits = {
 	dashboardRecentTransactions: 8,
 	dashboardCategoryTopN: 6,
 	trendsMaxCategoryIds: 2,
+	avatarUploadMaxBytes: 10 * 1024 * 1024,
+	avatarSizePx: 160,
+	avatarWebpQuality: 80,
+	avatarBlobFolder: 'fintrack-user-avatar',
 } as const;
 
 export type Limits = typeof limits;

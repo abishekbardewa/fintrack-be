@@ -158,6 +158,11 @@ export function monthLongLabel(year: number, month: number): string {
 	return `${name} ${year}`;
 }
 
+export function shortDateLabel(year: number, month: number, day: number): string {
+	const name = MONTH_SHORT[month - 1] ?? String(month);
+	return `${name} ${day}, ${year}`;
+}
+
 export function monthShortLabel(year: number, month: number, includeYear = false): string {
 	const base = MONTH_SHORT[month - 1] ?? String(month);
 	return includeYear ? `${base} ${String(year).slice(-2)}` : base;

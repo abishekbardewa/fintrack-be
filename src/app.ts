@@ -28,6 +28,7 @@ app.use(mongoSanitize());
 app.use(
 	cors({
 		origin: config.origins,
+		exposedHeaders: ['Content-Disposition'],
 	}),
 );
 

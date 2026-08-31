@@ -37,11 +37,68 @@ export type SavingsGoalStatusValue = (typeof SavingsGoalStatus)[keyof typeof Sav
 
 export const SavingsContributionSource = {
 	Manual: 'manual',
+	SetAside: 'set_aside',
+	StartingBalance: 'starting_balance',
+	GoalSpend: 'goal_spend',
+	ReturnToAvailable: 'return_to_available',
 	IncomeTransaction: 'income_transaction',
 } as const;
 
 export type SavingsContributionSourceValue =
 	(typeof SavingsContributionSource)[keyof typeof SavingsContributionSource];
+
+export const SavingCircleStatus = {
+	Active: 'active',
+	Completed: 'completed',
+} as const;
+
+export type SavingCircleStatusValue = (typeof SavingCircleStatus)[keyof typeof SavingCircleStatus];
+
+export const SavingCircleFrequency = {
+	Weekly: 'weekly',
+	Monthly: 'monthly',
+	Yearly: 'yearly',
+} as const;
+
+export type SavingCircleFrequencyValue =
+	(typeof SavingCircleFrequency)[keyof typeof SavingCircleFrequency];
+
+export const SavingTransactionSource = {
+	StartingBalance: 'starting_balance',
+	Contribution: 'contribution',
+	Withdrawal: 'withdrawal',
+	Return: 'return',
+} as const;
+
+export type SavingTransactionSourceValue =
+	(typeof SavingTransactionSource)[keyof typeof SavingTransactionSource];
+
+export const SavingsCircleTransactionSource = {
+	Contribution: 'contribution',
+	Payout: 'payout',
+	PayoutToSpendable: 'payout_to_spendable',
+} as const;
+
+export type SavingsCircleTransactionSourceValue =
+	(typeof SavingsCircleTransactionSource)[keyof typeof SavingsCircleTransactionSource];
+
+export const InvestmentStatus = {
+	Active: 'active',
+	Closed: 'closed',
+} as const;
+
+export type InvestmentStatusValue = (typeof InvestmentStatus)[keyof typeof InvestmentStatus];
+
+export const InvestmentTransactionSource = {
+	StartingBalance: 'starting_balance',
+	Contribution: 'contribution',
+	Return: 'return',
+	Withdrawal: 'withdrawal',
+	Loss: 'loss',
+} as const;
+
+export type InvestmentTransactionSourceValue =
+	(typeof InvestmentTransactionSource)[keyof typeof InvestmentTransactionSource];
 
 export const ExportFormat = {
 	Csv: 'csv',

@@ -5,7 +5,10 @@ import {
 	ExchangeRateStatus,
 	ExportFormat,
 	ExportRangePreset,
+	SavingCircleFrequency,
+	SavingCircleStatus,
 	SavingsGoalStatus,
+	InvestmentStatus,
 	TransactionType,
 } from '../config/enums.js';
 import { limits } from '../config/limits.js';
@@ -33,6 +36,13 @@ export const updateMeBodySchema = z
 	.object({
 		name: z.string().min(3).max(30).optional(),
 		currency: z.string().length(3).optional(),
+		openingBalance: z
+			.object({
+				amount: z.number().nonnegative(),
+				currency: z.string().length(3),
+			})
+			.optional(),
+		startingBalancePromptDismissed: z.literal(true).optional(),
 	})
 	.openapi('UpdateMeBody');
 
@@ -74,6 +84,7 @@ export const createTransactionBodySchema = z
 		subcategoryId: objectIdSchema.nullable().optional(),
 		description: z.string().max(limits.importDescriptionMaxLength).optional(),
 		date: isoDateTimeSchema,
+		fundedFromGoalId: objectIdSchema.nullable().optional(),
 	})
 	.openapi('CreateTransactionBody');
 
@@ -139,8 +150,7 @@ export const createSavingsGoalBodySchema = z
 		targetAmount: z.number().positive(),
 		currency: z.string().length(3).optional(),
 		targetDate: isoDateTimeSchema.nullable().optional(),
-		initialAmount: z.number().positive().optional(),
-		initialDate: isoDateTimeSchema.optional(),
+		startingAmount: z.number().positive().optional(),
 	})
 	.openapi('CreateSavingsGoalBody');
 
@@ -161,6 +171,11 @@ export const listSavingsGoalsQuerySchema = z.object({
 		.optional(),
 });
 
+export const listContributionsQuerySchema = z.object({
+	page: z.coerce.number().int().positive().optional(),
+	limit: z.coerce.number().int().positive().max(limits.listMaxPageSize).optional(),
+});
+
 export const createContributionBodySchema = z
 	.object({
 		amount: z.number().positive(),
@@ -170,9 +185,219 @@ export const createContributionBodySchema = z
 	})
 	.openapi('CreateContributionBody');
 
+export const startingBalanceBodySchema = z
+	.object({
+		amount: z.number().positive(),
+		currency: z.string().length(3).optional(),
+		date: isoDateTimeSchema.optional(),
+	})
+	.openapi('StartingBalanceBody');
+
+export const updateContributionBodySchema = z
+	.object({
+		amount: z.number().positive().optional(),
+		currency: z.string().length(3).optional(),
+		date: isoDateTimeSchema.optional(),
+		note: z.string().max(limits.importDescriptionMaxLength).nullable().optional(),
+		categoryId: objectIdSchema.optional(),
+		subcategoryId: objectIdSchema.nullable().optional(),
+		description: z.string().max(limits.importDescriptionMaxLength).optional(),
+	})
+	.openapi('UpdateContributionBody');
+
+export const spendFromGoalBodySchema = z
+	.object({
+		amount: z.number().positive(),
+		currency: z.string().length(3).optional(),
+		categoryId: objectIdSchema,
+		subcategoryId: objectIdSchema.nullable().optional(),
+		description: z.string().max(limits.importDescriptionMaxLength).optional(),
+		note: z.string().max(limits.importDescriptionMaxLength).nullable().optional(),
+		date: isoDateTimeSchema.optional(),
+	})
+	.openapi('SpendFromGoalBody');
+
+export const returnFromGoalBodySchema = z
+	.object({
+		amount: z.number().positive().optional(),
+		currency: z.string().length(3).optional(),
+		date: isoDateTimeSchema.optional(),
+		note: z.string().max(limits.importDescriptionMaxLength).nullable().optional(),
+		cancel: z.boolean().optional(),
+	})
+	.openapi('ReturnFromGoalBody');
+
 export const contributionParamsSchema = z.object({
 	id: objectIdSchema,
 	contributionId: objectIdSchema,
+});
+
+export const createSavingBodySchema = z
+	.object({
+		name: z.string().min(1).max(50),
+		currency: z.string().length(3).optional(),
+		notes: z.string().max(limits.importDescriptionMaxLength).nullable().optional(),
+		startingAmount: z.number().positive().optional(),
+	})
+	.openapi('CreateSavingBody');
+
+export const updateSavingBodySchema = z
+	.object({
+		name: z.string().min(1).max(50).optional(),
+		notes: z.string().max(limits.importDescriptionMaxLength).nullable().optional(),
+	})
+	.openapi('UpdateSavingBody');
+
+export const listSavingTransactionsQuerySchema = z.object({
+	page: z.coerce.number().int().positive().optional(),
+	limit: z.coerce.number().int().positive().max(limits.listMaxPageSize).optional(),
+});
+
+export const savingMovementBodySchema = z
+	.object({
+		amount: z.number().positive(),
+		currency: z.string().length(3).optional(),
+		date: isoDateTimeSchema.optional(),
+		note: z.string().max(limits.importDescriptionMaxLength).nullable().optional(),
+	})
+	.openapi('SavingMovementBody');
+
+export const updateSavingTransactionBodySchema = z
+	.object({
+		amount: z.number().positive().optional(),
+		currency: z.string().length(3).optional(),
+		date: isoDateTimeSchema.optional(),
+		note: z.string().max(limits.importDescriptionMaxLength).nullable().optional(),
+	})
+	.openapi('UpdateSavingTransactionBody');
+
+export const savingTransactionParamsSchema = z.object({
+	id: objectIdSchema,
+	transactionId: objectIdSchema,
+});
+
+export const createSavingsCircleBodySchema = z
+	.object({
+		name: z.string().min(1).max(50),
+		currency: z.string().length(3).optional(),
+		notes: z.string().max(limits.importDescriptionMaxLength).nullable().optional(),
+		contributionAmount: z.number().positive(),
+		frequency: z.enum([
+			SavingCircleFrequency.Weekly,
+			SavingCircleFrequency.Monthly,
+			SavingCircleFrequency.Yearly,
+		]),
+		memberCount: z.number().int().min(2).max(100),
+		startDate: isoDateTimeSchema,
+		expectedPayout: z.number().positive().optional(),
+	})
+	.openapi('CreateSavingsCircleBody');
+
+export const updateSavingsCircleBodySchema = z
+	.object({
+		name: z.string().min(1).max(50).optional(),
+		notes: z.string().max(limits.importDescriptionMaxLength).nullable().optional(),
+		contributionAmount: z.number().positive().optional(),
+		frequency: z
+			.enum([
+				SavingCircleFrequency.Weekly,
+				SavingCircleFrequency.Monthly,
+				SavingCircleFrequency.Yearly,
+			])
+			.optional(),
+		memberCount: z.number().int().min(2).max(100).optional(),
+		startDate: isoDateTimeSchema.optional(),
+		expectedPayout: z.number().positive().optional(),
+	})
+	.openapi('UpdateSavingsCircleBody');
+
+export const listSavingsCirclesQuerySchema = z.object({
+	status: z.enum([SavingCircleStatus.Active, SavingCircleStatus.Completed]).optional(),
+});
+
+export const listSavingsCircleTransactionsQuerySchema = z.object({
+	page: z.coerce.number().int().positive().optional(),
+	limit: z.coerce.number().int().positive().max(limits.listMaxPageSize).optional(),
+});
+
+export const savingsCircleMovementBodySchema = z
+	.object({
+		amount: z.number().positive(),
+		currency: z.string().length(3).optional(),
+		date: isoDateTimeSchema.optional(),
+		note: z.string().max(limits.importDescriptionMaxLength).nullable().optional(),
+	})
+	.openapi('SavingsCircleMovementBody');
+
+export const updateSavingsCircleTransactionBodySchema = z
+	.object({
+		amount: z.number().positive().optional(),
+		currency: z.string().length(3).optional(),
+		date: isoDateTimeSchema.optional(),
+		note: z.string().max(limits.importDescriptionMaxLength).nullable().optional(),
+	})
+	.openapi('UpdateSavingsCircleTransactionBody');
+
+export const savingsCircleTransactionParamsSchema = z.object({
+	id: objectIdSchema,
+	transactionId: objectIdSchema,
+});
+
+export const createInvestmentBodySchema = z
+	.object({
+		name: z.string().min(1).max(50),
+		currency: z.string().length(3).optional(),
+		notes: z.string().max(limits.importDescriptionMaxLength).nullable().optional(),
+		startDate: isoDateTimeSchema.optional(),
+		startingAmount: z.number().positive().optional(),
+	})
+	.openapi('CreateInvestmentBody');
+
+export const updateInvestmentBodySchema = z
+	.object({
+		name: z.string().min(1).max(50).optional(),
+		notes: z.string().max(limits.importDescriptionMaxLength).nullable().optional(),
+		startDate: isoDateTimeSchema.nullable().optional(),
+	})
+	.openapi('UpdateInvestmentBody');
+
+export const listInvestmentsQuerySchema = z.object({
+	status: z.enum([InvestmentStatus.Active, InvestmentStatus.Closed]).optional(),
+});
+
+export const listInvestmentTransactionsQuerySchema = z.object({
+	page: z.coerce.number().int().positive().optional(),
+	limit: z.coerce.number().int().positive().max(limits.listMaxPageSize).optional(),
+});
+
+export const investmentMovementBodySchema = z
+	.object({
+		amount: z.number().positive(),
+		currency: z.string().length(3).optional(),
+		date: isoDateTimeSchema.optional(),
+		note: z.string().max(limits.importDescriptionMaxLength).nullable().optional(),
+	})
+	.openapi('InvestmentMovementBody');
+
+export const closeInvestmentBodySchema = z
+	.object({
+		date: isoDateTimeSchema.optional(),
+		note: z.string().max(limits.importDescriptionMaxLength).nullable().optional(),
+	})
+	.openapi('CloseInvestmentBody');
+
+export const updateInvestmentTransactionBodySchema = z
+	.object({
+		amount: z.number().positive().optional(),
+		currency: z.string().length(3).optional(),
+		date: isoDateTimeSchema.optional(),
+		note: z.string().max(limits.importDescriptionMaxLength).nullable().optional(),
+	})
+	.openapi('UpdateInvestmentTransactionBody');
+
+export const investmentTransactionParamsSchema = z.object({
+	id: objectIdSchema,
+	transactionId: objectIdSchema,
 });
 
 export const listCurrenciesQuerySchema = z.object({

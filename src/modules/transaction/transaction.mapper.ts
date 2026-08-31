@@ -12,6 +12,7 @@ export type PublicTransaction = {
 	subcategoryId: string | null;
 	description: string;
 	date: Date;
+	fundedFromGoalId: string | null;
 	createdAt?: Date;
 	updatedAt?: Date;
 };
@@ -19,7 +20,16 @@ export type PublicTransaction = {
 export async function toPublicTransaction(
 	txn: Pick<
 		TransactionDocument,
-		'type' | 'amount' | 'currency' | 'categoryId' | 'subcategoryId' | 'description' | 'date' | 'createdAt' | 'updatedAt'
+		| 'type'
+		| 'amount'
+		| 'currency'
+		| 'categoryId'
+		| 'subcategoryId'
+		| 'description'
+		| 'date'
+		| 'fundedFromGoalId'
+		| 'createdAt'
+		| 'updatedAt'
 	> & { _id: Types.ObjectId },
 	userCurrency: string,
 ): Promise<PublicTransaction> {
@@ -33,6 +43,7 @@ export async function toPublicTransaction(
 		subcategoryId: txn.subcategoryId ? txn.subcategoryId.toString() : null,
 		description: txn.description ?? '',
 		date: txn.date,
+		fundedFromGoalId: txn.fundedFromGoalId ? txn.fundedFromGoalId.toString() : null,
 		createdAt: txn.createdAt,
 		updatedAt: txn.updatedAt,
 	};

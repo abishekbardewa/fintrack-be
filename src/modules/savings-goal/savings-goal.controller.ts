@@ -7,7 +7,12 @@ import * as savingsGoalService from './savings-goal.service.js';
 import type {
 	CreateContributionBody,
 	CreateSavingsGoalBody,
+	ListContributionsQuery,
 	ListSavingsGoalsQuery,
+	ReturnFromGoalBody,
+	SpendFromGoalBody,
+	StartingBalanceBody,
+	UpdateContributionBody,
 	UpdateSavingsGoalBody,
 } from './savings-goal.validation.js';
 
@@ -16,12 +21,12 @@ export const listSavingsGoals = catchAsync(async (req: Request, res: Response) =
 		throw new AppError(messages.TOKEN_INVALID, 401);
 	}
 	const query = req.query as unknown as ListSavingsGoalsQuery;
-	const goals = await savingsGoalService.listSavingsGoals(req.user.userId, query);
+	const result = await savingsGoalService.listSavingsGoals(req.user.userId, query);
 	sendSuccess({
 		res,
 		statusCode: 200,
 		message: 'Success',
-		data: { goals },
+		data: result,
 	});
 });
 
@@ -79,6 +84,24 @@ export const deleteSavingsGoal = catchAsync(async (req: Request, res: Response) 
 	});
 });
 
+export const addStartingBalance = catchAsync(async (req: Request, res: Response) => {
+	if (!req.user?.userId) {
+		throw new AppError(messages.TOKEN_INVALID, 401);
+	}
+	const body = req.body as StartingBalanceBody;
+	const result = await savingsGoalService.addStartingBalance(
+		req.user.userId,
+		req.params.id as string,
+		body,
+	);
+	sendSuccess({
+		res,
+		statusCode: 201,
+		message: messages.SAVINGS_GOAL_STARTING_BALANCE_ADDED,
+		data: result,
+	});
+});
+
 export const addContribution = catchAsync(async (req: Request, res: Response) => {
 	if (!req.user?.userId) {
 		throw new AppError(messages.TOKEN_INVALID, 401);
@@ -93,19 +116,40 @@ export const addContribution = catchAsync(async (req: Request, res: Response) =>
 	});
 });
 
+export const updateContribution = catchAsync(async (req: Request, res: Response) => {
+	if (!req.user?.userId) {
+		throw new AppError(messages.TOKEN_INVALID, 401);
+	}
+	const body = req.body as UpdateContributionBody;
+	const result = await savingsGoalService.updateContribution(
+		req.user.userId,
+		req.params.id as string,
+		req.params.contributionId as string,
+		body,
+	);
+	sendSuccess({
+		res,
+		statusCode: 200,
+		message: messages.SAVINGS_CONTRIBUTION_UPDATED,
+		data: result,
+	});
+});
+
 export const listContributions = catchAsync(async (req: Request, res: Response) => {
 	if (!req.user?.userId) {
 		throw new AppError(messages.TOKEN_INVALID, 401);
 	}
-	const contributions = await savingsGoalService.listContributions(
+	const query = req.query as unknown as ListContributionsQuery;
+	const result = await savingsGoalService.listContributions(
 		req.user.userId,
 		req.params.id as string,
+		query,
 	);
 	sendSuccess({
 		res,
 		statusCode: 200,
 		message: 'Success',
-		data: { contributions },
+		data: result,
 	});
 });
 
@@ -123,5 +167,33 @@ export const deleteContribution = catchAsync(async (req: Request, res: Response)
 		statusCode: 200,
 		message: messages.SAVINGS_CONTRIBUTION_DELETED,
 		data: { goal },
+	});
+});
+
+export const spendFromGoal = catchAsync(async (req: Request, res: Response) => {
+	if (!req.user?.userId) {
+		throw new AppError(messages.TOKEN_INVALID, 401);
+	}
+	const body = req.body as SpendFromGoalBody;
+	const result = await savingsGoalService.spendFromGoal(req.user.userId, req.params.id as string, body);
+	sendSuccess({
+		res,
+		statusCode: 201,
+		message: messages.SAVINGS_GOAL_SPENT,
+		data: result,
+	});
+});
+
+export const returnFromGoal = catchAsync(async (req: Request, res: Response) => {
+	if (!req.user?.userId) {
+		throw new AppError(messages.TOKEN_INVALID, 401);
+	}
+	const body = req.body as ReturnFromGoalBody;
+	const result = await savingsGoalService.returnFromGoal(req.user.userId, req.params.id as string, body);
+	sendSuccess({
+		res,
+		statusCode: 200,
+		message: messages.SAVINGS_GOAL_RETURNED,
+		data: result,
 	});
 });

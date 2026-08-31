@@ -34,6 +34,18 @@ const userSchema = new Schema(
 			trim: true,
 			default: limits.defaultTimezone,
 		},
+		openingBalance: {
+			type: new Schema(
+				{
+					amount: { type: Number, required: true, min: 0, default: 0 },
+					currency: { type: String, required: true, uppercase: true, trim: true },
+					setAt: { type: Date, default: null },
+				},
+				{ _id: false },
+			),
+			default: undefined,
+		},
+		startingBalancePromptDismissedAt: { type: Date, default: null },
 	},
 	{ timestamps: true },
 );

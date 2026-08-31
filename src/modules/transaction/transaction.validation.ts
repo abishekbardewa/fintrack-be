@@ -19,6 +19,7 @@ export const createTransactionBodySchema = z.object({
 		.optional()
 		.default(''),
 	date: dateSchema,
+	fundedFromGoalId: objectIdSchema.nullish(),
 });
 
 export const updateTransactionBodySchema = z

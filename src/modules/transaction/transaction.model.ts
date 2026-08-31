@@ -15,6 +15,7 @@ const transactionSchema = new Schema(
 		subcategoryId: { type: Schema.Types.ObjectId, ref: 'Category', default: null },
 		description: { type: String, trim: true, default: '' },
 		date: { type: Date, required: true },
+		fundedFromGoalId: { type: Schema.Types.ObjectId, ref: 'SavingsGoal', default: null, index: true },
 	},
 	{ timestamps: true },
 );

@@ -1,9 +1,14 @@
-import { TransactionType } from '../../config/enums.js';
+import { Types } from 'mongoose';
+import { BudgetPeriodType, TransactionType } from '../../config/enums.js';
 import { limits } from '../../config/limits.js';
 import { messages } from '../../config/messages.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import { sumInPreferred } from '../../shared/utils/aggregateFx.js';
 import { getZonedYmd, monthWindow, resolveTimeZone } from '../../shared/utils/dateWindows.js';
+import { toAmountPreferred } from '../../shared/utils/fx.js';
+import { round2 } from '../../shared/utils/money.js';
+import { computeBudgetProgress } from '../budget/budget.mapper.js';
+import { BudgetModel } from '../budget/budget.model.js';
 import { CategoryModel } from '../category/category.model.js';
 import { CurrencyModel } from '../currency/currency.model.js';
 import { UserModel } from '../user/user.model.js';
@@ -79,6 +84,10 @@ export async function createTransaction(userId: string, input: CreateTransaction
 	await assertEnabledCurrency(currency);
 	await assertCategoryForTransaction(userId, input.type, input.categoryId, input.subcategoryId);
 
+	if (input.fundedFromGoalId) {
+		throw new AppError(messages.TRANSACTION_GOAL_MANAGED, 422);
+	}
+
 	const txn = await TransactionModel.create({
 		userId,
 		type: input.type,
@@ -88,6 +97,7 @@ export async function createTransaction(userId: string, input: CreateTransaction
 		subcategoryId: input.subcategoryId ?? null,
 		description: input.description ?? '',
 		date: input.date,
+		fundedFromGoalId: null,
 	});
 
 	return toPublicTransaction(txn, userCurrency);
@@ -152,6 +162,9 @@ export async function updateTransaction(userId: string, transactionId: string, i
 	if (!existing) {
 		throw new AppError(messages.TRANSACTION_NOT_FOUND, 404);
 	}
+	if (existing.fundedFromGoalId) {
+		throw new AppError(messages.TRANSACTION_GOAL_MANAGED, 422);
+	}
 
 	const nextType = input.type ?? existing.type;
 	const nextCategoryId = input.categoryId ?? existing.categoryId.toString();
@@ -170,33 +183,31 @@ export async function updateTransaction(userId: string, transactionId: string, i
 		await assertCategoryForTransaction(userId, nextType, nextCategoryId, nextSubcategoryId);
 	}
 
-	const patch: Record<string, unknown> = {};
-	if (input.type !== undefined) patch.type = input.type;
-	if (input.amount !== undefined) patch.amount = input.amount;
-	if (input.currency !== undefined) patch.currency = input.currency;
-	if (input.categoryId !== undefined) patch.categoryId = input.categoryId;
-	if (input.subcategoryId !== undefined) patch.subcategoryId = input.subcategoryId ?? null;
-	if (input.description !== undefined) patch.description = input.description;
-	if (input.date !== undefined) patch.date = input.date;
-
-	const updated = await TransactionModel.findOneAndUpdate(
-		{ _id: transactionId, userId },
-		{ $set: patch },
-		{ new: true, runValidators: true },
-	);
-	if (!updated) {
-		throw new AppError(messages.TRANSACTION_NOT_FOUND, 404);
+	if (input.type !== undefined) existing.type = input.type;
+	if (input.amount !== undefined) existing.amount = input.amount;
+	if (input.currency !== undefined) existing.currency = input.currency;
+	if (input.categoryId !== undefined) existing.categoryId = new Types.ObjectId(input.categoryId);
+	if (input.subcategoryId !== undefined) {
+		existing.subcategoryId = input.subcategoryId ? new Types.ObjectId(input.subcategoryId) : null;
 	}
+	if (input.description !== undefined) existing.description = input.description;
+	if (input.date !== undefined) existing.date = input.date;
+
+	await existing.save();
 
 	const userCurrency = await getUserCurrency(userId);
-	return toPublicTransaction(updated, userCurrency);
+	return toPublicTransaction(existing, userCurrency);
 }
 
 export async function deleteTransaction(userId: string, transactionId: string) {
-	const result = await TransactionModel.deleteOne({ _id: transactionId, userId });
-	if (result.deletedCount === 0) {
+	const existing = await TransactionModel.findOne({ _id: transactionId, userId });
+	if (!existing) {
 		throw new AppError(messages.TRANSACTION_NOT_FOUND, 404);
 	}
+	if (existing.fundedFromGoalId) {
+		throw new AppError(messages.TRANSACTION_GOAL_MANAGED, 422);
+	}
+	await TransactionModel.deleteOne({ _id: existing._id, userId });
 }
 
 export async function suggestDescriptions(userId: string, query: SuggestDescriptionsQuery) {
@@ -254,12 +265,21 @@ export async function getMonthSummary(userId: string, query: MonthSummaryQuery) 
 	const { year, month } = query;
 	const { from, to } = monthWindow(year, month, timeZone);
 
-	const txns = (await TransactionModel.find({
-		userId,
-		date: { $gte: from, $lte: to },
-	})
-		.select('type amount currency date')
-		.lean()) as MonthSummaryTxn[];
+	const [txns, overallBudget] = await Promise.all([
+		TransactionModel.find({
+			userId,
+			date: { $gte: from, $lte: to },
+		})
+			.select('type amount currency date')
+			.lean() as Promise<MonthSummaryTxn[]>,
+		BudgetModel.findOne({
+			userId,
+			periodType: BudgetPeriodType.Month,
+			year,
+			month,
+			categoryId: null,
+		}).lean(),
+	]);
 
 	const byDay = new Map<string, MonthSummaryTxn[]>();
 	for (const txn of txns) {
@@ -306,6 +326,22 @@ export async function getMonthSummary(userId: string, query: MonthSummaryQuery) 
 		}),
 	);
 
+	let budget = null;
+	if (overallBudget) {
+		const limit = round2(
+			await toAmountPreferred(overallBudget.limitAmount, overallBudget.currency, preferred),
+		);
+		const progress = computeBudgetProgress(limit, spent);
+		budget = {
+			id: overallBudget._id.toString(),
+			limit,
+			spent,
+			remaining: progress.remaining,
+			percent: progress.percent,
+			status: progress.status,
+		};
+	}
+
 	return {
 		year,
 		month,
@@ -316,5 +352,6 @@ export async function getMonthSummary(userId: string, query: MonthSummaryQuery) 
 			count: txns.length,
 		},
 		days,
+		budget,
 	};
 }

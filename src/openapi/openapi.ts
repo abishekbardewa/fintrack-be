@@ -45,6 +45,8 @@ function buildDocument(): OpenAPIObject {
 			{ name: 'Transactions' },
 			{ name: 'Budgets' },
 			{ name: 'Savings Goals' },
+			{ name: 'Savings' },
+			{ name: 'Investments' },
 			{ name: 'Dashboard' },
 			{ name: 'Trends' },
 			{ name: 'Admin Exchange Rates' },

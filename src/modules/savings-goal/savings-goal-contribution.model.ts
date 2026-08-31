@@ -22,6 +22,7 @@ const savingsGoalContributionSchema = new Schema(
 
 savingsGoalContributionSchema.index({ goalId: 1, date: -1 });
 savingsGoalContributionSchema.index({ userId: 1, date: -1 });
+savingsGoalContributionSchema.index({ transactionId: 1 });
 
 export type SavingsGoalContribution = InferSchemaType<typeof savingsGoalContributionSchema>;
 export type SavingsGoalContributionDocument = HydratedDocument<SavingsGoalContribution>;

@@ -6,8 +6,14 @@ import {
 	ExchangeRateProcess,
 	ExchangeRateSource,
 	ExchangeRateStatus,
+	SavingCircleFrequency,
+	SavingCircleStatus,
+	SavingTransactionSource,
+	SavingsCircleTransactionSource,
 	SavingsContributionSource,
 	SavingsGoalStatus,
+	InvestmentStatus,
+	InvestmentTransactionSource,
 	TransactionType,
 } from '../config/enums.js';
 
@@ -42,6 +48,12 @@ export function successResponseSchema<T extends z.ZodTypeAny>(dataSchema: T, nam
 	return name ? schema.openapi(name) : schema;
 }
 
+const startingBalanceSchema = z.object({
+	amount: z.number(),
+	currency: z.string().length(3),
+	setAt: isoDateTimeSchema.nullable(),
+});
+
 export const publicUserSchema = z
 	.object({
 		id: objectIdSchema,
@@ -50,10 +62,27 @@ export const publicUserSchema = z
 		currency: z.string().length(3),
 		timezone: z.string(),
 		avatarUrl: z.string().url().nullable(),
+		openingBalance: startingBalanceSchema,
+		startingBalance: startingBalanceSchema,
+		startingBalancePromptDismissedAt: isoDateTimeSchema.nullable(),
 		createdAt: isoDateTimeSchema.optional(),
 		updatedAt: isoDateTimeSchema.optional(),
 	})
 	.openapi('User');
+
+const moneyPositionFields = {
+	startingBalance: z.number(),
+	openingBalance: z.number(),
+	spendable: z.number(),
+	available: z.number(),
+	inGoals: z.number(),
+	inSavings: z.number(),
+	inInvestments: z.number(),
+	financialPosition: z.number(),
+	balance: z.number(),
+};
+
+export const moneyPositionSchema = z.object(moneyPositionFields).openapi('MoneyPosition');
 
 export const authSuccessDataSchema = z
 	.object({
@@ -95,6 +124,7 @@ export const publicTransactionSchema = z
 		subcategoryId: objectIdSchema.nullable(),
 		description: z.string(),
 		date: isoDateTimeSchema,
+		fundedFromGoalId: objectIdSchema.nullable(),
 		createdAt: isoDateTimeSchema.optional(),
 		updatedAt: isoDateTimeSchema.optional(),
 	})
@@ -128,6 +158,20 @@ export const transactionMonthSummaryDataSchema = z
 				count: z.number().int(),
 			}),
 		),
+		budget: z
+			.object({
+				id: objectIdSchema,
+				limit: z.number(),
+				spent: z.number(),
+				remaining: z.number(),
+				percent: z.number(),
+				status: z.enum([
+					BudgetProgressStatus.Ok,
+					BudgetProgressStatus.Warning,
+					BudgetProgressStatus.Over,
+				]),
+			})
+			.nullable(),
 	})
 	.openapi('TransactionMonthSummaryData');
 
@@ -181,12 +225,175 @@ export const publicContributionSchema = z
 		amountPreferred: z.number(),
 		date: isoDateTimeSchema,
 		note: z.string().nullable(),
-		source: z.enum([SavingsContributionSource.Manual, SavingsContributionSource.IncomeTransaction]),
+		source: z.enum([
+			SavingsContributionSource.Manual,
+			SavingsContributionSource.SetAside,
+			SavingsContributionSource.StartingBalance,
+			SavingsContributionSource.GoalSpend,
+			SavingsContributionSource.ReturnToAvailable,
+			SavingsContributionSource.IncomeTransaction,
+		]),
 		transactionId: objectIdSchema.nullable(),
+		categoryId: objectIdSchema.nullable(),
+		subcategoryId: objectIdSchema.nullable(),
+		description: z.string().nullable(),
 		createdAt: isoDateTimeSchema.optional(),
 		updatedAt: isoDateTimeSchema.optional(),
 	})
 	.openapi('SavingsContribution');
+
+export const contributionListDataSchema = z
+	.object({
+		items: z.array(publicContributionSchema),
+		page: z.number().int(),
+		limit: z.number().int(),
+		total: z.number().int(),
+		totalPages: z.number().int(),
+	})
+	.openapi('ContributionListData');
+
+export const publicSavingSchema = z
+	.object({
+		id: objectIdSchema,
+		name: z.string(),
+		currency: z.string().length(3),
+		currentAmount: z.number(),
+		currentAmountPreferred: z.number(),
+		notes: z.string().nullable(),
+		createdAt: isoDateTimeSchema.optional(),
+		updatedAt: isoDateTimeSchema.optional(),
+	})
+	.openapi('Saving');
+
+export const publicSavingTransactionSchema = z
+	.object({
+		id: objectIdSchema,
+		savingId: objectIdSchema,
+		amount: z.number(),
+		currency: z.string().length(3),
+		amountPreferred: z.number(),
+		date: isoDateTimeSchema,
+		note: z.string().nullable(),
+		source: z.enum([
+			SavingTransactionSource.StartingBalance,
+			SavingTransactionSource.Contribution,
+			SavingTransactionSource.Withdrawal,
+			SavingTransactionSource.Return,
+		]),
+		createdAt: isoDateTimeSchema.optional(),
+		updatedAt: isoDateTimeSchema.optional(),
+	})
+	.openapi('SavingTransaction');
+
+export const savingTransactionListDataSchema = z
+	.object({
+		items: z.array(publicSavingTransactionSchema),
+		page: z.number().int(),
+		limit: z.number().int(),
+		total: z.number().int(),
+		totalPages: z.number().int(),
+	})
+	.openapi('SavingTransactionListData');
+
+export const publicSavingsCircleSchema = z
+	.object({
+		id: objectIdSchema,
+		name: z.string(),
+		currency: z.string().length(3),
+		notes: z.string().nullable(),
+		status: z.enum([SavingCircleStatus.Active, SavingCircleStatus.Completed]),
+		contributionAmount: z.number(),
+		frequency: z.enum([
+			SavingCircleFrequency.Weekly,
+			SavingCircleFrequency.Monthly,
+			SavingCircleFrequency.Yearly,
+		]),
+		memberCount: z.number(),
+		startDate: isoDateTimeSchema,
+		expectedPayout: z.number(),
+		pendingPayout: z.number(),
+		pendingPayoutPreferred: z.number(),
+		createdAt: isoDateTimeSchema.optional(),
+		updatedAt: isoDateTimeSchema.optional(),
+	})
+	.openapi('SavingsCircle');
+
+export const publicSavingsCircleTransactionSchema = z
+	.object({
+		id: objectIdSchema,
+		circleId: objectIdSchema,
+		amount: z.number(),
+		currency: z.string().length(3),
+		amountPreferred: z.number(),
+		date: isoDateTimeSchema,
+		note: z.string().nullable(),
+		source: z.enum([
+			SavingsCircleTransactionSource.Contribution,
+			SavingsCircleTransactionSource.Payout,
+			SavingsCircleTransactionSource.PayoutToSpendable,
+		]),
+		createdAt: isoDateTimeSchema.optional(),
+		updatedAt: isoDateTimeSchema.optional(),
+	})
+	.openapi('SavingsCircleTransaction');
+
+export const savingsCircleTransactionListDataSchema = z
+	.object({
+		items: z.array(publicSavingsCircleTransactionSchema),
+		page: z.number().int(),
+		limit: z.number().int(),
+		total: z.number().int(),
+		totalPages: z.number().int(),
+	})
+	.openapi('SavingsCircleTransactionListData');
+
+export const publicInvestmentSchema = z
+	.object({
+		id: objectIdSchema,
+		name: z.string(),
+		currency: z.string().length(3),
+		initialAmount: z.number(),
+		currentBalance: z.number(),
+		currentBalancePreferred: z.number(),
+		startDate: isoDateTimeSchema.nullable(),
+		closedAmount: z.number(),
+		notes: z.string().nullable(),
+		status: z.enum([InvestmentStatus.Active, InvestmentStatus.Closed]),
+		createdAt: isoDateTimeSchema.optional(),
+		updatedAt: isoDateTimeSchema.optional(),
+	})
+	.openapi('Investment');
+
+export const publicInvestmentTransactionSchema = z
+	.object({
+		id: objectIdSchema,
+		investmentId: objectIdSchema,
+		amount: z.number(),
+		currency: z.string().length(3),
+		amountPreferred: z.number(),
+		date: isoDateTimeSchema,
+		note: z.string().nullable(),
+		source: z.enum([
+			InvestmentTransactionSource.StartingBalance,
+			InvestmentTransactionSource.Contribution,
+			InvestmentTransactionSource.Return,
+			InvestmentTransactionSource.Withdrawal,
+			InvestmentTransactionSource.Loss,
+		]),
+		createdAt: isoDateTimeSchema.optional(),
+		updatedAt: isoDateTimeSchema.optional(),
+	})
+	.openapi('InvestmentTransaction');
+
+export const investmentTransactionListDataSchema = z
+	.object({
+		items: z.array(publicInvestmentTransactionSchema),
+		page: z.number().int(),
+		limit: z.number().int(),
+		total: z.number().int(),
+		totalPages: z.number().int(),
+	})
+	.openapi('InvestmentTransactionListData');
 
 export const healthDataSchema = z
 	.object({
@@ -234,9 +441,11 @@ export const dashboardDataSchema = z
 		summary: z.object({
 			income: z.number(),
 			expense: z.number(),
+			periodNet: z.number(),
 			net: z.number(),
 			savingsRate: z.number().nullable(),
 			vsPrevious: vsPreviousSchema,
+			...moneyPositionFields,
 		}),
 		cashFlow: z.array(
 			z.object({
@@ -304,6 +513,7 @@ export const dashboardDataSchema = z
 				subcategoryName: z.string().nullable(),
 				amount: z.number(),
 				date: isoDateTimeSchema,
+				fundedFromGoalId: objectIdSchema.nullable(),
 			}),
 		),
 	})

@@ -32,6 +32,12 @@ export async function registerUser(input: RegisterBody) {
 		role: UserRole.User,
 		currency: input.currency,
 		timezone: input.timezone || 'UTC',
+		openingBalance: {
+			amount: 0,
+			currency: input.currency,
+			setAt: null,
+		},
+		startingBalancePromptDismissedAt: null,
 	});
 
 	try {

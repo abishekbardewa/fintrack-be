@@ -18,6 +18,7 @@ import {
 	type DateWindow,
 } from '../../shared/utils/dateWindows.js';
 import { pctChange, round2 } from '../../shared/utils/money.js';
+import { getMoneyPosition, toPublicMoneyPosition } from '../../shared/money/balance.js';
 import { computeBudgetProgress } from '../budget/budget.mapper.js';
 import { BudgetModel } from '../budget/budget.model.js';
 import { CategoryModel } from '../category/category.model.js';
@@ -435,7 +436,12 @@ async function buildBudgets(userId: string, year: number, month: number, preferr
 	return result;
 }
 
-async function buildGoals(userId: string, preferred: string, timeZone: string) {
+async function buildGoals(
+	userId: string,
+	preferred: string,
+	timeZone: string,
+	inGoalsByGoalId: Map<string, number>,
+) {
 	const goals = await SavingsGoalModel.find({ userId, status: SavingsGoalStatus.Active })
 		.sort({ createdAt: -1 })
 		.limit(3)
@@ -447,15 +453,7 @@ async function buildGoals(userId: string, preferred: string, timeZone: string) {
 
 	const out = [];
 	for (const goal of goals) {
-		const current = round2(
-			await convertAmountWithCachedRates(
-				goal.currentAmount,
-				goal.currency,
-				preferred,
-				new Date(),
-				rateCache,
-			),
-		);
+		const current = inGoalsByGoalId.get(goal._id.toString()) ?? 0;
 		const target = round2(
 			await convertAmountWithCachedRates(
 				goal.targetAmount,
@@ -495,7 +493,7 @@ async function buildRecent(userId: string, preferred: string, categories: Map<st
 	const rows = await TransactionModel.find({ userId })
 		.sort({ date: -1 })
 		.limit(limits.dashboardRecentTransactions)
-		.select('type amount currency date categoryId subcategoryId description')
+		.select('type amount currency date categoryId subcategoryId description fundedFromGoalId')
 		.lean();
 
 	const rateCache = new Map<string, Record<string, number>>();
@@ -513,6 +511,7 @@ async function buildRecent(userId: string, preferred: string, categories: Map<st
 			subcategoryName: subcategoryId ? (categories.get(subcategoryId)?.name ?? null) : null,
 			amount,
 			date: row.date.toISOString(),
+			fundedFromGoalId: row.fundedFromGoalId ? row.fundedFromGoalId.toString() : null,
 		});
 	}
 	return out;
@@ -593,9 +592,10 @@ export async function getDashboard(userId: string, query: GetDashboardQuery) {
 	);
 	const spanTo = new Date(Math.max(windows.previous.to.getTime(), windows.current.to.getTime()));
 
-	const [allTxns, categories] = await Promise.all([
+	const [allTxns, categories, money] = await Promise.all([
 		loadTransactions(userId, spanFrom, spanTo),
 		loadCategoryMap(userId),
+		getMoneyPosition(userId),
 	]);
 
 	const inWindow = (from: Date, to: Date) =>
@@ -658,7 +658,7 @@ export async function getDashboard(userId: string, query: GetDashboardQuery) {
 					preferred,
 				),
 		buildBudgets(userId, today.year, today.month, preferred, timeZone),
-		buildGoals(userId, preferred, timeZone),
+		buildGoals(userId, preferred, timeZone, money.inGoalsByGoalId),
 		buildRecent(userId, preferred, categories),
 	]);
 
@@ -673,8 +673,10 @@ export async function getDashboard(userId: string, query: GetDashboardQuery) {
 		summary: {
 			income: summary.income,
 			expense: summary.expense,
+			periodNet: summary.net,
 			net: summary.net,
 			savingsRate: summary.income > 0 ? round2((summary.net / summary.income) * 100) : null,
+			...toPublicMoneyPosition(money),
 			vsPrevious: {
 				incomePct: pctChange(summary.income, prevTotals.income),
 				expensePct: pctChange(summary.expense, prevTotals.expense),

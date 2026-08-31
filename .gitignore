@@ -14,6 +14,7 @@ logs/
 *.log
 
 # OS / IDE
+._*
 .DS_Store
 **/.DS_Store
 .idea/
@@ -21,7 +22,6 @@ logs/
 
 # local-only (never push)
 /docs/
-src-legacy/
 .cursor/
 scripts/
 

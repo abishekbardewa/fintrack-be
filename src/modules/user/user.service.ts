@@ -17,19 +17,40 @@ export async function getMe(userId: string) {
 	return toPublicUser(user);
 }
 
+async function assertEnabledCurrency(code: string): Promise<void> {
+	const found = await CurrencyModel.findOne({ code, enabled: true }).lean();
+	if (!found) {
+		throw new AppError(messages.CURRENCY_INVALID, 422);
+	}
+}
+
 export async function updateMe(userId: string, input: UpdateMeBody) {
 	if (input.currency) {
-		const found = await CurrencyModel.findOne({ code: input.currency, enabled: true }).lean();
-		if (!found) {
-			throw new AppError(messages.CURRENCY_INVALID, 422);
-		}
+		await assertEnabledCurrency(input.currency);
+	}
+	if (input.openingBalance) {
+		await assertEnabledCurrency(input.openingBalance.currency);
 	}
 
+	const now = new Date();
 	const user = await UserModel.findByIdAndUpdate(
 		userId,
 		{
 			...(input.name !== undefined ? { name: input.name } : {}),
 			...(input.currency !== undefined ? { currency: input.currency } : {}),
+			...(input.openingBalance !== undefined
+				? {
+						openingBalance: {
+							amount: input.openingBalance.amount,
+							currency: input.openingBalance.currency,
+							setAt: now,
+						},
+						startingBalancePromptDismissedAt: now,
+					}
+				: {}),
+			...(input.startingBalancePromptDismissed
+				? { startingBalancePromptDismissedAt: now }
+				: {}),
 		},
 		{ new: true, runValidators: true },
 	);

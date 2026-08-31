@@ -9,14 +9,23 @@ import {
 	getSavingsGoal,
 	listContributions,
 	listSavingsGoals,
+	returnFromGoal,
+	spendFromGoal,
+	addStartingBalance,
+	updateContribution,
 	updateSavingsGoal,
 } from './savings-goal.controller.js';
 import {
 	contributionParamsSchema,
 	createContributionBodySchema,
 	createSavingsGoalBodySchema,
+	listContributionsQuerySchema,
 	listSavingsGoalsQuerySchema,
+	returnFromGoalBodySchema,
 	savingsGoalIdParamsSchema,
+	spendFromGoalBodySchema,
+	startingBalanceBodySchema,
+	updateContributionBodySchema,
 	updateSavingsGoalBodySchema,
 } from './savings-goal.validation.js';
 
@@ -36,13 +45,33 @@ savingsGoalRouter.delete('/:id', validate({ params: savingsGoalIdParamsSchema })
 
 savingsGoalRouter.get(
 	'/:id/contributions',
-	validate({ params: savingsGoalIdParamsSchema }),
+	validate({ params: savingsGoalIdParamsSchema, query: listContributionsQuerySchema }),
 	listContributions,
+);
+savingsGoalRouter.post(
+	'/:id/starting-balance',
+	validate({ params: savingsGoalIdParamsSchema, body: startingBalanceBodySchema }),
+	addStartingBalance,
 );
 savingsGoalRouter.post(
 	'/:id/contributions',
 	validate({ params: savingsGoalIdParamsSchema, body: createContributionBodySchema }),
 	addContribution,
+);
+savingsGoalRouter.patch(
+	'/:id/contributions/:contributionId',
+	validate({ params: contributionParamsSchema, body: updateContributionBodySchema }),
+	updateContribution,
+);
+savingsGoalRouter.post(
+	'/:id/spend',
+	validate({ params: savingsGoalIdParamsSchema, body: spendFromGoalBodySchema }),
+	spendFromGoal,
+);
+savingsGoalRouter.post(
+	'/:id/return',
+	validate({ params: savingsGoalIdParamsSchema, body: returnFromGoalBodySchema }),
+	returnFromGoal,
 );
 savingsGoalRouter.delete(
 	'/:id/contributions/:contributionId',

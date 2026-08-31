@@ -10,8 +10,7 @@ export const createSavingsGoalBodySchema = z.object({
 	targetAmount: z.number().positive(),
 	currency: z.string().trim().toUpperCase().min(3).max(3).optional(),
 	targetDate: dateSchema.nullish(),
-	initialAmount: z.number().positive().optional(),
-	initialDate: dateSchema.optional(),
+	startingAmount: z.number().positive().optional(),
 });
 
 export const updateSavingsGoalBodySchema = z
@@ -33,11 +32,60 @@ export const listSavingsGoalsQuerySchema = z.object({
 		.optional(),
 });
 
+export const listContributionsQuerySchema = z.object({
+	page: z.coerce.number().int().positive().optional().default(1),
+	limit: z.coerce
+		.number()
+		.int()
+		.positive()
+		.max(limits.listMaxPageSize)
+		.optional()
+		.default(limits.listDefaultPageSize),
+});
+
 export const createContributionBodySchema = z.object({
 	amount: z.number().positive(),
 	currency: z.string().trim().toUpperCase().min(3).max(3).optional(),
 	date: dateSchema.optional(),
 	note: z.string().trim().max(limits.importDescriptionMaxLength).nullish(),
+});
+
+export const startingBalanceBodySchema = z.object({
+	amount: z.number().positive(),
+	currency: z.string().trim().toUpperCase().min(3).max(3).optional(),
+	date: dateSchema.optional(),
+});
+
+export const updateContributionBodySchema = z
+	.object({
+		amount: z.number().positive().optional(),
+		currency: z.string().trim().toUpperCase().min(3).max(3).optional(),
+		date: dateSchema.optional(),
+		note: z.string().trim().max(limits.importDescriptionMaxLength).nullish(),
+		categoryId: objectIdSchema.optional(),
+		subcategoryId: objectIdSchema.nullish(),
+		description: z.string().trim().max(limits.importDescriptionMaxLength).optional(),
+	})
+	.refine((body) => Object.keys(body).length > 0, {
+		message: 'At least one field is required',
+	});
+
+export const spendFromGoalBodySchema = z.object({
+	amount: z.number().positive(),
+	currency: z.string().trim().toUpperCase().min(3).max(3).optional(),
+	categoryId: objectIdSchema,
+	subcategoryId: objectIdSchema.nullish(),
+	description: z.string().trim().max(limits.importDescriptionMaxLength).optional(),
+	note: z.string().trim().max(limits.importDescriptionMaxLength).nullish(),
+	date: dateSchema.optional(),
+});
+
+export const returnFromGoalBodySchema = z.object({
+	amount: z.number().positive().optional(),
+	currency: z.string().trim().toUpperCase().min(3).max(3).optional(),
+	date: dateSchema.optional(),
+	note: z.string().trim().max(limits.importDescriptionMaxLength).nullish(),
+	cancel: z.boolean().optional(),
 });
 
 export const savingsGoalIdParamsSchema = z.object({
@@ -52,4 +100,9 @@ export const contributionParamsSchema = z.object({
 export type CreateSavingsGoalBody = z.infer<typeof createSavingsGoalBodySchema>;
 export type UpdateSavingsGoalBody = z.infer<typeof updateSavingsGoalBodySchema>;
 export type ListSavingsGoalsQuery = z.infer<typeof listSavingsGoalsQuerySchema>;
+export type ListContributionsQuery = z.infer<typeof listContributionsQuerySchema>;
 export type CreateContributionBody = z.infer<typeof createContributionBodySchema>;
+export type StartingBalanceBody = z.infer<typeof startingBalanceBodySchema>;
+export type UpdateContributionBody = z.infer<typeof updateContributionBodySchema>;
+export type SpendFromGoalBody = z.infer<typeof spendFromGoalBodySchema>;
+export type ReturnFromGoalBody = z.infer<typeof returnFromGoalBodySchema>;

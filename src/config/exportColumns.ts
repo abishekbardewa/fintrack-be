@@ -17,7 +17,7 @@ export const exportTransactionColumnLabels: Record<ExportTransactionColumn, stri
 	subcategory: 'Subcategory',
 	amount: 'Amount',
 	amountPreferred: 'Amount Preferred',
-	description: 'Description',
+	description: 'Note',
 };
 
 export const exportTransactionColumnWidths: Record<ExportTransactionColumn, number> = {

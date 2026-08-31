@@ -3,7 +3,6 @@ export const limits = {
 	maxSubcategoriesPerParent: 100,
 	budgetWarningPercent: 80,
 	budgetOverPercent: 100,
-	maxActiveSavingsGoals: 10,
 	fxCronMaxAttempts: 3,
 	systemBaseCurrency: 'USD',
 	importMaxRows: 100,

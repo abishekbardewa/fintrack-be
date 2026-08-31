@@ -1,5 +1,4 @@
-import { Types } from 'mongoose';
-import { logger, messages } from '../../config/index.js';
+import { messages } from '../../config/index.js';
 import {
 	SavingCircleStatus,
 	SavingsCircleTransactionSource,
@@ -14,8 +13,6 @@ import { sumInPreferred } from '../../shared/utils/aggregateFx.js';
 import { convertAmount } from '../../shared/utils/fx.js';
 import { round2 } from '../../shared/utils/money.js';
 import { CurrencyModel } from '../currency/currency.model.js';
-import { SavingModel } from '../saving/saving.model.js';
-import { SavingTransactionModel } from '../saving/saving-transaction.model.js';
 import { UserModel } from '../user/user.model.js';
 import { toPublicSavingsCircle, toPublicSavingsCircleTransaction } from './savings-circle.mapper.js';
 import { SavingsCircleModel, type SavingsCircleDocument } from './savings-circle.model.js';
@@ -119,68 +116,6 @@ function nextSignedAmount(source: string, existingAmount: number, inputAmount: n
 async function toCircleResponse(circle: SavingsCircleDocument, userCurrency: string) {
 	const { pending, pendingPreferred } = await pendingPayoutFor(circle, userCurrency);
 	return toPublicSavingsCircle(circle, pending, pendingPreferred);
-}
-
-export async function migrateLegacySavingsCircles(): Promise<void> {
-	const leftover = await SavingModel.collection.find({ kind: 'savings_circle' }).toArray();
-	if (leftover.length === 0) return;
-
-	let moved = 0;
-	for (const row of leftover) {
-		const circleId = row._id as Types.ObjectId;
-		const existing = await SavingsCircleModel.findById(circleId);
-		if (!existing) {
-			await SavingsCircleModel.create({
-				_id: circleId,
-				userId: row.userId,
-				name: row.name,
-				currency: row.currency,
-				notes: row.notes ?? null,
-				status: row.status === SavingCircleStatus.Completed
-					? SavingCircleStatus.Completed
-					: SavingCircleStatus.Active,
-				contributionAmount: row.contributionAmount ?? 0,
-				frequency: row.frequency,
-				memberCount: row.memberCount ?? 2,
-				startDate: row.startDate ?? new Date(),
-				expectedPayout: row.expectedPayout ?? 0,
-				createdAt: row.createdAt,
-				updatedAt: row.updatedAt,
-			});
-		}
-
-		const txs = await SavingTransactionModel.collection.find({ savingId: circleId }).toArray();
-		for (const tx of txs) {
-			const source = tx.source as string;
-			if (
-				source !== SavingsCircleTransactionSource.Contribution &&
-				source !== SavingsCircleTransactionSource.Payout &&
-				source !== SavingsCircleTransactionSource.PayoutToSpendable
-			) {
-				continue;
-			}
-			const already = await SavingsCircleTransactionModel.findById(tx._id);
-			if (already) continue;
-			await SavingsCircleTransactionModel.create({
-				_id: tx._id,
-				circleId,
-				userId: tx.userId,
-				amount: tx.amount,
-				currency: tx.currency,
-				date: tx.date,
-				note: tx.note ?? null,
-				source,
-				createdAt: tx.createdAt,
-				updatedAt: tx.updatedAt,
-			});
-		}
-
-		await SavingTransactionModel.deleteMany({ savingId: circleId });
-		await SavingModel.deleteOne({ _id: circleId });
-		moved += 1;
-	}
-
-	logger.info('Migrated legacy savings circles', { count: moved });
 }
 
 export async function createSavingsCircle(userId: string, input: CreateSavingsCircleBody) {

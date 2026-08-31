@@ -4,14 +4,11 @@ import { config, logger } from './config/index.js';
 import { connectDatabase, disconnectDatabase } from './database/connection.js';
 import { startFxCron } from './jobs/fxCron.js';
 import { seedCurrencies } from './modules/currency/currency.seed.js';
-import { migrateLegacySavingsCircles } from './modules/savings-circle/savings-circle.service.js';
 
 async function bootstrap(): Promise<void> {
 	await connectDatabase();
 	await seedCurrencies();
-	await migrateLegacySavingsCircles();
 	startFxCron();
-
 
 	const server = createServer(app);
 
